@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planning Locatif</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+.bg-layer{position:fixed;inset:0;z-index:0;background-size:cover;background-position:center;transition:all .4s;}
+.app{padding:1rem;min-height:100vh;position:relative;z-index:1;}
+.sync-bar{display:flex;align-items:center;gap:6px;font-size:11px;color:#666;margin-bottom:.5rem;flex-wrap:wrap;}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#ccc;transition:background .3s;flex-shrink:0;}
+.sync-dot.online{background:#4caf50;}.sync-dot.syncing{background:#ff9800;animation:pulse 1s infinite;}.sync-dot.error{background:#f44336;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.readonly-badge{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:600;}
+.toolbar{display:flex;align-items:center;gap:7px;margin-bottom:.75rem;flex-wrap:wrap;}
+.toolbar-title{font-size:15px;font-weight:600;color:#1a1a1a;flex:1;min-width:100px;}
+.view-switch{display:flex;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;background:rgba(255,255,255,.85);}
+.view-btn{background:none;border:none;padding:5px 12px;cursor:pointer;font-size:12px;color:#666;}
+.view-btn.active{background:rgba(255,255,255,.95);color:#1a1a1a;font-weight:600;}
+.nav-btn{background:rgba(255,255,255,.85);border:1px solid #e0e0e0;border-radius:8px;padding:5px 11px;cursor:pointer;font-size:12px;color:#1a1a1a;}
+.nav-btn:hover{background:#fff;}
+.period-label{font-size:13px;font-weight:500;color:#1a1a1a;min-width:155px;text-align:center;}
+.icon-btn{background:rgba(255,255,255,.85);border:1px solid #e0e0e0;border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12px;color:#1a1a1a;}
+.icon-btn:hover{background:#fff;}
+.filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:.75rem;flex-wrap:wrap;}
+.filter-bar label{font-size:12px;color:#666;}
+.filter-select{padding:5px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px;background:rgba(255,255,255,.85);color:#1a1a1a;cursor:pointer;}
+.stats-bar{display:flex;gap:10px;margin-bottom:.75rem;flex-wrap:wrap;}
+.stat-card{background:rgba(255,255,255,.88);border:1px solid #e0e0e0;border-radius:10px;padding:8px 14px;font-size:12px;color:#1a1a1a;flex:1;min-width:130px;}
+.stat-card .stat-val{font-size:18px;font-weight:700;color:#1a73e8;margin-bottom:1px;}
+.stat-card .stat-lbl{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.4px;}
+.settings-panel{border-radius:12px;padding:1rem;margin-bottom:.75rem;display:none;background:rgba(255,255,255,.92);border:1px solid #e0e0e0;}
+.settings-panel.open{display:block;}
+.settings-section{margin-bottom:.85rem;}
+.settings-section-title{font-size:10px;font-weight:600;color:#999;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.6px;}
+.themes-row{display:flex;gap:7px;flex-wrap:wrap;}
+.theme-chip{border:1px solid #e0e0e0;border-radius:20px;padding:5px 12px;cursor:pointer;font-size:12px;color:#1a1a1a;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.7);}
+.theme-chip:hover{border-color:#aaa;}.theme-chip.active{border-width:2px;border-color:#1a73e8;font-weight:600;}
+.theme-preview{width:13px;height:13px;border-radius:3px;border:1px solid rgba(0,0,0,.1);}
+.settings-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+.swatch-group{display:flex;align-items:center;gap:6px;}
+.swatch-group label{font-size:12px;color:#555;}
+.swatch-group input[type=color]{width:30px;height:26px;border:1px solid #ddd;border-radius:4px;cursor:pointer;padding:1px;}
+.bg-upload-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.upload-label{cursor:pointer;font-size:12px;color:#1a73e8;text-decoration:underline;}
+.opacity-group{display:flex;align-items:center;gap:8px;}
+.opacity-group label{font-size:12px;color:#555;}
+.opacity-group input[type=range]{width:90px;}
+.clear-btn{background:none;border:1px solid #e0e0e0;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;color:#555;}
+.legend{display:flex;gap:14px;margin-bottom:.75rem;flex-wrap:wrap;align-items:center;}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#666;}
+.legend-dot{width:10px;height:10px;border-radius:2px;}
+.grid-wrap{overflow-x:auto;overflow-y:auto;max-height:70vh;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);-webkit-overflow-scrolling:touch;}
+table{width:100%;border-collapse:separate;border-spacing:0;}
+th{font-size:11px;font-weight:500;color:#666;padding:6px 4px;text-align:center;border-bottom:1px solid #e8e8e8;white-space:nowrap;transition:background .3s;position:sticky;top:0;z-index:4;}
+th.prop-th{text-align:left;padding:8px;width:120px;min-width:100px;position:sticky;left:0;top:0;z-index:6;}
+.bien-header{font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:15px;font-weight:400;letter-spacing:.5px;color:#1a1a1a;}
+td{border-bottom:1px solid #f0f0f0;vertical-align:middle;height:44px;padding:0;position:relative;transition:background .2s;}
+td.prop-td{padding:0 4px 0 6px;font-size:10px;font-weight:500;color:#1a1a1a;border-right:2px solid #bbb;white-space:nowrap;width:120px;min-width:100px;max-width:120px;position:sticky;left:0;z-index:3;box-shadow:2px 0 5px rgba(0,0,0,0.10);}
+.pname{max-width:80px;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:middle;cursor:pointer;}
+.pname:hover{text-decoration:underline dotted #aaa;}
+.mgmt-badge{display:inline-block;font-size:8px;font-weight:700;border-radius:3px;padding:1px 4px;vertical-align:middle;margin-left:3px;white-space:nowrap;}
+.mgmt-totale{background:#e8f5e9;color:#2e7d32;}
+.mgmt-partielle{background:#fff8e1;color:#f57f17;}
+.mgmt-aucune{background:#fce8e8;color:#c62828;}
+.type-badge{display:inline-block;font-size:8px;font-weight:700;border-radius:3px;padding:1px 4px;vertical-align:middle;margin-left:2px;background:#e3f2fd;color:#1565c0;}
+.prop-rate{font-size:9px;color:#4caf50;font-weight:600;display:block;margin-top:1px;}
+.owner-btn{background:none;border:1px solid #e0e0e0;border-radius:5px;padding:1px 5px;cursor:pointer;font-size:9px;color:#1a73e8;margin-left:2px;vertical-align:middle;}
+.owner-btn:hover{background:#e8f0fe;}
+.del-prop{background:none;border:none;cursor:pointer;color:#ccc;font-size:10px;margin-left:2px;vertical-align:middle;}
+.del-prop:hover{color:#e53935;}
+td.day-cell{min-width:36px;cursor:pointer;position:relative;}
+td.day-cell:hover{filter:brightness(.94);}
+.seg{position:absolute;top:5px;bottom:5px;display:flex;align-items:center;overflow:hidden;z-index:2;cursor:pointer;transition:filter .15s;}
+.seg:hover{filter:brightness(.85);}
+.seg-inner{padding:0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;font-weight:600;width:100%;}
+.night-badge{font-size:8px;opacity:.8;margin-left:3px;}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(26,26,26,.92);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:500;z-index:500;opacity:0;transition:opacity .25s;pointer-events:none;max-width:80vw;text-align:center;}
+.toast.show{opacity:1;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:200;}
+.modal{background:#fff;border-radius:14px;border:1px solid #e0e0e0;padding:1.25rem;width:340px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.15);max-height:90vh;overflow-y:auto;}
+.modal h3{font-size:15px;font-weight:600;margin-bottom:.85rem;color:#1a1a1a;}
+.fg{margin-bottom:10px;}
+.fg label{display:block;font-size:11px;color:#888;margin-bottom:3px;font-weight:500;}
+.fg input,.fg select,.fg textarea{width:100%;padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;color:#1a1a1a;background:#fafafa;font-family:inherit;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:#1a73e8;background:#fff;}
+.fg textarea{resize:vertical;min-height:60px;}
+.mactions{display:flex;gap:7px;margin-top:.85rem;justify-content:flex-end;flex-wrap:wrap;}
+.btn-c{background:none;border:1px solid #e0e0e0;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px;color:#888;}
+.btn-c:hover{background:#f5f5f5;}
+.btn-s{background:#1a73e8;border:none;border-radius:8px;padding:7px 16px;cursor:pointer;font-size:12px;font-weight:600;color:#fff;}
+.btn-s:hover{background:#1557b0;}
+.btn-d{background:none;border:1px solid #fca5a5;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px;color:#e53935;margin-right:auto;}
+.btn-d:hover{background:#fff5f5;}
+.overlap-warning{background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;padding:8px 12px;font-size:12px;color:#e65100;margin-bottom:10px;display:none;}
+.checklist-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f5f5f5;}
+.checklist-item:last-child{border-bottom:none;}
+.checklist-item input[type=checkbox]{width:16px;height:16px;cursor:pointer;flex-shrink:0;}
+.checklist-item label{font-size:13px;color:#1a1a1a;cursor:pointer;flex:1;}
+.checklist-item label.done{text-decoration:line-through;color:#aaa;}
+.owner-view-modal{background:#fff;border-radius:14px;border:1px solid #e0e0e0;padding:1.5rem;width:340px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.15);}
+.owner-avatar{width:52px;height:52px;border-radius:50%;background:#e8f0fe;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#1a73e8;flex-shrink:0;}
+.owner-info-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:13px;color:#1a1a1a;}
+.owner-info-row:last-child{border-bottom:none;}
+.owner-info-icon{font-size:14px;width:20px;text-align:center;flex-shrink:0;}
+.owner-info-label{font-size:11px;color:#aaa;margin-bottom:1px;}
+.share-box{background:#f8faff;border:1px solid #d0e3ff;border-radius:8px;padding:10px;margin-top:10px;}
+.share-url{width:100%;padding:7px 10px;border:1px solid #e0e0e0;border-radius:6px;font-size:11px;color:#555;background:#fff;font-family:monospace;}
+@media(max-width:600px){.toolbar{gap:5px;}.period-label{min-width:100px;font-size:11px;}.icon-btn,.nav-btn{padding:4px 7px;font-size:11px;}.stats-bar{gap:6px;}.stat-card{min-width:100px;}}
+@media print{.toolbar,.sync-bar,.filter-bar,.settings-panel,.legend,.btn-c,.btn-s,.btn-d,.icon-btn,.nav-btn,.del-prop,.owner-btn{display:none!important;}.app{padding:0;}.grid-wrap{box-shadow:none;}}
+</style>
+</head>
+<body>
+<div class="bg-layer" id="bgLayer"></div>
+<div class="app" id="mainApp">
+<div class="sync-bar">
+  <div class="sync-dot" id="syncDot"></div>
+  <span id="syncLabel">Non connecté</span>
+  <span id="readonlyBadge" class="readonly-badge" style="display:none">Vue lecture seule</span>
+  <span style="margin-left:auto;font-size:10px;color:#aaa;cursor:pointer" id="resetConn">⚙ Reconfigurer</span>
+</div>
+<div class="toolbar">
+  <span class="toolbar-title">Planning locatif</span>
+  <div class="view-switch">
+    <button class="view-btn active" id="vWeek">Semaine</button>
+    <button class="view-btn" id="vMonth">Mois</button>
+  </div>
+  <button class="nav-btn" id="todayBtn" style="font-size:11px;padding:4px 8px;">Aujourd'hui</button>
+  <button class="nav-btn" id="prevBtn">&#8592;</button>
+  <span class="period-label" id="periodLabel"></span>
+  <button class="nav-btn" id="nextBtn">&#8594;</button>
+  <button class="icon-btn edit-only" id="addPropBtn">+ Bien</button>
+  <button class="icon-btn edit-only" id="addBookBtn">+ Réservation</button>
+  <button class="icon-btn edit-only" id="addCleanBtn">🧹 Ménage à venir</button>
+  <button class="icon-btn" id="settingsBtn">⚙ Apparence</button>
+  <button class="icon-btn edit-only" id="shareBtn">🔗 Partager</button>
+  <button class="icon-btn" id="exportBtn">📄 PDF</button>
+</div>
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-section">
+    <div class="settings-section-title">Thèmes</div>
+    <div class="themes-row" id="themesRow"></div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Couleurs des réservations</div>
+    <div class="settings-row">
+      <div class="swatch-group"><label>Confirmé</label><input type="color" id="cConfirmed" value="#1a73e8"></div>
+      <div class="swatch-group"><label>Option</label><input type="color" id="cOption" value="#f59e0b"></div>
+      <div class="swatch-group"><label>Bloqué</label><input type="color" id="cBlocked" value="#9ca3af"></div>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Couleurs des cases "Type de gestion"</div>
+    <div class="settings-row">
+      <div class="swatch-group"><label>🟢 Totale</label><input type="color" id="cMgmtTotale" value="#e8f5e9"></div>
+      <div class="swatch-group"><label>🟡 Partielle</label><input type="color" id="cMgmtPartielle" value="#fff8e1"></div>
+      <div class="swatch-group"><label>🔴 Sans gest.</label><input type="color" id="cMgmtAucune" value="#fce8e8"></div>
+      <div class="swatch-group"><label>⚪ Non renseigné</label><input type="color" id="cMgmtNone" value="#f5f5f5"></div>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Couleurs des ménages</div>
+    <div class="settings-row">
+      <div class="swatch-group"><label>🏠 Intérieur</label><input type="color" id="cCleanInt" value="#f59e0b"></div>
+      <div class="swatch-group"><label>🌿 Extérieur</label><input type="color" id="cCleanExt" value="#3b82f6"></div>
+      <div class="swatch-group"><label>✅ Effectué</label><input type="color" id="cCleanDone" value="#22c55e"></div>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Image de fond personnalisée</div>
+    <div class="bg-upload-row">
+      <label class="upload-label"><input type="file" id="bgUpload" accept="image/*" style="display:none">Choisir une image</label>
+      <button class="clear-btn" id="bgClear">Retirer</button>
+      <div class="opacity-group"><label>Opacité</label><input type="range" id="bgOpacity" min="5" max="60" value="22" step="1"><span id="bgOpacityVal" style="font-size:12px;min-width:28px">22%</span></div>
+    </div>
+  </div>
+</div>
+<div class="filter-bar">
+  <label>Filtrer :</label>
+  <select class="filter-select" id="filterType"><option value="">Tous types</option><option value="appartement">Appartements</option><option value="mobilhome">Mobil-homes</option><option value="maison">Maisons</option><option value="studio">Studios</option><option value="autre">Autre</option></select>
+  <div style="position:relative;display:inline-block">
+    <input type="text" id="filterPropSearch" placeholder="🔍 Tous les biens..." style="padding:5px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px;min-width:160px;background:#fafafa;color:#1a1a1a;font-family:inherit;" autocomplete="off">
+    <div id="filterPropDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e0e0e0;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:100;max-height:200px;overflow-y:auto;margin-top:2px;"></div>
+  </div>
+  <select style="display:none" id="filterProp"><option value="">Tous les biens</option></select>
+  <select class="filter-select" id="filterStatus"><option value="">Tous statuts</option><option value="confirmed">Confirmé</option><option value="option">Option</option><option value="blocked">Bloqué</option></select>
+  <input type="text" id="searchInput" placeholder="🔍 Bien ou propriétaire..." style="padding:5px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px;min-width:180px;background:#fafafa;color:#1a1a1a;font-family:inherit;">
+</div>
+<div class="stats-bar" id="statsBar"></div>
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" id="ldConfirmed" style="background:#1a73e8"></div>Confirmé</div>
+  <div class="legend-item"><div class="legend-dot" id="ldOption" style="background:#f59e0b"></div>Option</div>
+  <div class="legend-item"><div class="legend-dot" id="ldBlocked" style="background:#9ca3af"></div>Bloqué</div>
+  <div class="legend-item" style="margin-left:auto;font-size:10px;color:#aaa">▶ arrivée &nbsp; ◀ départ</div>
+</div>
+<div class="grid-wrap"><table id="mainTable"></table></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- BOOKING MODAL -->
+<div class="modal-overlay" id="bookingModal" style="display:none">
+  <div class="modal">
+    <h3 id="mTitle">Nouvelle réservation</h3>
+    <div class="overlap-warning" id="overlapWarn">⚠️ Ce bien est déjà réservé sur cette période !</div>
+    <div class="fg"><label>Bien</label><select id="fProp"></select></div>
+    <div class="fg"><label>Locataire</label><input type="text" id="fName" placeholder="Nom du locataire"/></div>
+    <div class="fg"><label>Arrivée</label><input type="date" id="fStart"/></div>
+    <div class="fg"><label>Départ</label><input type="date" id="fEnd"/></div>
+    <div id="nightCount" style="font-size:12px;color:#1a73e8;margin-bottom:8px;font-weight:500;display:none"></div>
+    <div class="fg"><label>Plateforme</label>
+      <select id="fPlat"><option value="">— Aucune —</option><option>Airbnb</option><option>Booking</option><option>Direct</option><option>Autre</option></select>
+    </div>
+    <div class="fg"><label>Statut</label>
+      <select id="fStatus"><option value="confirmed">Confirmé</option><option value="option">Option</option><option value="blocked">Bloqué</option></select>
+    </div>
+    <div class="fg"><label>Notes</label><textarea id="fNotes" placeholder="Infos spéciales, code accès, animaux..."></textarea></div>
+    <div class="fg"><label>Tarif / nuit (€)</label><input type="number" id="fRate" placeholder="ex: 120" min="0"/></div>
+    <div class="mactions">
+      <button class="btn-d" id="delBtn" style="display:none">Supprimer</button>
+      <button class="btn-c" id="checklistBtn" style="display:none">✓ Ménage</button>
+      <button class="btn-c" id="cancelBtn">Annuler</button>
+      <button class="btn-s" id="saveBtn">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHECKLIST MODAL -->
+<div class="modal-overlay" id="checklistModal" style="display:none">
+  <div class="modal">
+    <h3>Check-list ménage</h3>
+    <div style="font-size:12px;color:#888;margin-bottom:12px" id="checklistProp"></div>
+    <div id="checklistItems"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+      <input type="text" id="newTaskInput" placeholder="Ajouter une tâche..." style="flex:1;padding:6px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px;">
+      <button class="btn-s" id="addTaskBtn" style="padding:6px 12px;font-size:12px;">+</button>
+    </div>
+    <div class="mactions"><button class="btn-c" id="checklistCloseBtn">Fermer</button></div>
+  </div>
+</div>
+
+<!-- PROPERTY MODAL -->
+<div class="modal-overlay" id="propModal" style="display:none">
+  <div class="modal">
+    <h3 id="propModalTitle">Ajouter un bien</h3>
+    <div class="fg"><label>Nom du bien</label><input type="text" id="fPropName" placeholder="ex: Appartement Nice 1"/></div>
+    <div class="fg"><label>Type de bien</label>
+      <select id="fPropType">
+        <option value="">— Non renseigné —</option>
+        <option value="appartement">Appartement (AP)</option>
+        <option value="mobilhome">Mobil-home (MH)</option>
+        <option value="maison">Maison</option>
+        <option value="studio">Studio</option>
+        <option value="autre">Autre</option>
+      </select>
+    </div>
+    <div class="fg"><label>Tarif nuit par défaut (€)</label><input type="number" id="fPropRate" placeholder="ex: 100" min="0"/></div>
+    <div class="fg"><label>Type de gestion</label>
+      <select id="fPropMgmt">
+        <option value="">— Non renseigné —</option>
+        <option value="totale">Gestion totale</option>
+        <option value="partielle">Gestion partielle</option>
+        <option value="aucune">Pas de gestion</option>
+      </select>
+    </div>
+    <div class="mactions">
+      <button class="btn-d" id="pDelBtn" style="display:none">Supprimer le bien</button>
+      <button class="btn-c" id="pCancelBtn">Annuler</button>
+      <button class="btn-s" id="pSaveBtn">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- OWNER VIEW MODAL -->
+<div class="modal-overlay" id="ownerViewModal" style="display:none">
+  <div class="owner-view-modal">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:1rem;">
+      <div class="owner-avatar" id="ownerAvatar">?</div>
+      <div>
+        <div style="font-size:16px;font-weight:600;color:#1a1a1a" id="ownerViewName">—</div>
+        <div style="font-size:12px;color:#888;margin-top:2px" id="ownerViewProp">—</div>
+      </div>
+    </div>
+    <div id="ownerViewPhone" class="owner-info-row" style="display:none">
+      <span class="owner-info-icon">📞</span>
+      <div><div class="owner-info-label">Téléphone</div><a id="ownerPhoneLink" href="#">—</a></div>
+    </div>
+    <div id="ownerViewEmail" class="owner-info-row" style="display:none">
+      <span class="owner-info-icon">✉️</span>
+      <div><div class="owner-info-label">Email</div><a id="ownerEmailLink" href="#">—</a></div>
+    </div>
+    <div id="ownerViewNote" class="owner-info-row" style="display:none">
+      <span class="owner-info-icon">📝</span>
+      <div><div class="owner-info-label">Note</div><span id="ownerNoteText">—</span></div>
+    </div>
+    <div id="ownerViewRate" class="owner-info-row" style="display:none">
+      <span class="owner-info-icon">💶</span>
+      <div><div class="owner-info-label">Tarif nuit</div><span id="ownerRateText">—</span></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end">
+      <button class="btn-c edit-only" id="ownerViewEditBtn">Modifier</button>
+      <button class="btn-c" id="ownerViewCloseBtn">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- OWNER EDIT MODAL -->
+<div class="modal-overlay" id="ownerModal" style="display:none">
+  <div class="modal">
+    <h3>Fiche propriétaire</h3>
+    <div style="font-size:12px;color:#888;margin-bottom:12px" id="ownerModalProp"></div>
+    <div class="fg"><label>Nom du propriétaire</label><input type="text" id="fOwnerName" placeholder="ex: Jean Dupont"/></div>
+    <div class="fg"><label>Téléphone</label><input type="tel" id="fOwnerPhone" placeholder="ex: 06 12 34 56 78"/></div>
+    <div class="fg"><label>Email</label><input type="email" id="fOwnerEmail" placeholder="ex: jean@email.com"/></div>
+    <div class="fg"><label>Note</label><input type="text" id="fOwnerNote" placeholder="ex: contrat signé le..."/></div>
+    <div class="mactions">
+      <button class="btn-c" id="ownerCancelBtn">Annuler</button>
+      <button class="btn-s" id="ownerSaveBtn">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHARE MODAL -->
+<div class="modal-overlay" id="shareModal" style="display:none">
+  <div class="modal">
+    <h3>🔗 Lien lecture seule</h3>
+    <p style="font-size:13px;color:#666;margin-bottom:12px;line-height:1.5">Partagez ce lien avec un propriétaire pour qu'il puisse consulter le planning de son bien sans pouvoir modifier quoi que ce soit.</p>
+    <div class="fg"><label>Bien concerné</label><select id="fShareProp"><option value="">Tous les biens</option></select></div>
+    <div class="share-box">
+      <div style="font-size:11px;color:#888;margin-bottom:6px">Lien de partage :</div>
+      <input class="share-url" id="shareUrl" readonly onclick="this.select()">
+      <button class="btn-s" id="copyShareBtn" style="margin-top:8px;width:100%">Copier le lien</button>
+    </div>
+    <div class="mactions"><button class="btn-c" id="shareCloseBtn">Fermer</button></div>
+  </div>
+</div>
+
+<!-- CLEANING MODAL -->
+<div class="modal-overlay" id="cleaningModal" style="display:none">
+  <div class="modal">
+    <h3>🧹 Ménage à venir</h3>
+    <div class="fg"><label>Bien</label><select id="fCleanProp"></select></div>
+    <div class="fg"><label>Type de ménage</label>
+      <select id="fCleanType">
+        <option value="interieur">🏠 Ménage intérieur</option>
+        <option value="exterieur">🌿 Ménage extérieur</option>
+      </select>
+    </div>
+    <div class="fg"><label>Date du ménage</label><input type="date" id="fCleanDate"/></div>
+    <div class="fg"><label>Heure (optionnel)</label><input type="time" id="fCleanTime" placeholder="ex: 10:00"/></div>
+    <div class="fg"><label>Intervenant (optionnel)</label><input type="text" id="fCleanPerson" placeholder="ex: Marie, équipe ménage..."/></div>
+    <div class="fg"><label>Notes</label><textarea id="fCleanNotes" rows="3" placeholder="Instructions particulières..." style="resize:vertical"></textarea></div>
+    <div class="fg"><label>Statut</label>
+      <select id="fCleanStatus">
+        <option value="todo">À faire</option>
+        <option value="done">Effectué</option>
+      </select>
+    </div>
+    <div class="mactions">
+      <button class="btn-d" id="cleanDeleteBtn" style="display:none">Supprimer</button>
+      <button class="btn-c" id="cleanCancelBtn">Annuler</button>
+      <button class="btn-s" id="cleanSaveBtn">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- CLEANING LIST MODAL -->
+<div class="modal-overlay" id="cleaningListModal" style="display:none">
+  <div class="modal" style="max-width:520px">
+    <h3>🧹 Ménages à venir</h3>
+    <div id="cleaningListContent" style="max-height:400px;overflow-y:auto;margin-bottom:12px"></div>
+    <div class="mactions">
+      <button class="btn-s" id="addCleaningBtn">+ Ajouter un ménage</button>
+      <button class="btn-c" id="cleaningListCloseBtn">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const THEMES=[
+  {id:'blanc',label:'Blanc',preview:'#e0e0e0',bg:'#ffffff',header:'#f5f5f3',today:'#dbeeff',gradient:null},
+  {id:'ardoise',label:'Ardoise',preview:'#8fa8c0',bg:'#e8edf2',header:'#d4dce6',today:'#b8d4f0',gradient:'linear-gradient(135deg,#e8edf2,#cdd8e3)'},
+  {id:'sable',label:'Sable',preview:'#c8b890',bg:'#f5f0e8',header:'#ede5d8',today:'#f5d9a0',gradient:'linear-gradient(135deg,#f5f0e8,#e8dcc8)'},
+  {id:'olive',label:'Olive',preview:'#90b870',bg:'#edf2e8',header:'#dce6d4',today:'#c8e0a8',gradient:'linear-gradient(135deg,#edf2e8,#d4e3c8)'},
+  {id:'crepuscule',label:'Crépuscule',preview:'#b090c8',bg:'#f0e8f5',header:'#e2d4ec',today:'#d4b8f0',gradient:'linear-gradient(135deg,#f0e8f5,#e0d0f0)'},
+  {id:'nuit',label:'Nuit',preview:'#2a3a50',bg:'#1a1f2e',header:'#252b3b',today:'#1a3a5c',gradient:'linear-gradient(135deg,#1a1f2e,#0f1520)'},
+  {id:'aurore',label:'Aurore',preview:'#f0a0a8',bg:'#fff0f0',header:'#fde0e0',today:'#ffc8c8',gradient:'linear-gradient(135deg,#fff0f0,#ffe0e8)'},
+  {id:'fuchsia',label:'Fuchsia',preview:'#e040a0',bg:'#fce8f5',header:'#f5cce8',today:'#f5a8dc',gradient:'linear-gradient(135deg,#fce8f5,#f8c8ee,#f0a0d8)'},
+  {id:'rose',label:'Rose',preview:'#f080b0',bg:'#fff0f7',header:'#fddaee',today:'#fbbcdf',gradient:'linear-gradient(135deg,#fff0f7,#fddaee,#fbbcdf)'},
+  {id:'bleu_pastel',label:'Bleu pastel',preview:'#90c8f0',bg:'#edf5fd',header:'#d4e8f8',today:'#b8d8f8',gradient:'linear-gradient(135deg,#edf5fd,#d8ecfb,#c0dff7)'},
+  {id:'ciel',label:'Ciel',preview:'#70b8e8',bg:'#e8f4fc',header:'#cce4f5',today:'#a8d4f0',gradient:'linear-gradient(135deg,#e8f4fc,#d0e8f8,#a8d0f0)'},
+];
+const MOIS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const MOIS_C=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+const JOURS=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+const DEFAULT_TASKS=['Ménage complet','Linge de lit','Serviettes','Inventaire','Vérifier électroménager','Poubelles','Rapport propriétaire'];
+
+let activeTheme=THEMES[0],customBg=null,bgOpacity=22;
+let view='week',pivot=getMonday(new Date()),editId=null;
+let colors={confirmed:'#1a73e8',option:'#f59e0b',blocked:'#9ca3af'};
+let mgmtColors={totale:'#e8f5e9',partielle:'#fff8e1',aucune:'#fce8e8',none:'#f5f5f5'};
+let cleanColors={interieur:'#f59e0b',exterieur:'#3b82f6',done:'#22c55e'};
+let properties=[],bookings=[],owners={},propRates={},propMgmt={},propType={},checklists={},cleaningTasks=[];
+let nextCleanId=1;
+let nextId=1;
+let db=null,fbEnabled=false;
+let isReadOnly=false,readOnlyProp=null;
+let currentOwnerProp=null,currentChecklistKey=null,currentCleanId=null;
+
+// ─── URL PARAMS (lecture seule) ──────────────────────────────────────────────
+const urlParams=new URLSearchParams(window.location.search);
+if(urlParams.get('readonly')==='1'){
+  isReadOnly=true;
+  readOnlyProp=urlParams.get('prop')||null;
+  document.getElementById('readonlyBadge').style.display='inline';
+  document.querySelectorAll('.edit-only').forEach(el=>el.style.display='none');
+}
+
+// ─── HELPERS ────────────────────────────────────────────────────────────────
+function ds(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${dd}`;}
+function pd(s){return new Date(s+'T00:00:00');}
+function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function getMonday(d){const day=d.getDay(),diff=day===0?-6:1-day;const m=new Date(d);m.setDate(d.getDate()+diff);m.setHours(0,0,0,0);return m;}
+function isToday(d){return d.toDateString()===new Date().toDateString();}
+function nightsBetween(s,e){return Math.round((pd(e)-pd(s))/(1000*60*60*24));}
+function textColor(h){const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return(r*299+g*587+b*114)/1000>145?darken(h):'#fff';}
+function darken(h){return'#'+[[1,3],[3,5],[5,7]].map(([a,b])=>Math.max(0,parseInt(h.slice(a,b),16)-90).toString(16).padStart(2,'0')).join('');}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+// ─── FIREBASE ────────────────────────────────────────────────────────────────
+function initFirebase(url){
+  try{
+    const app=firebase.initializeApp({databaseURL:url},'planning');
+    db=firebase.database(app);fbEnabled=true;
+    setSyncStatus('syncing','Connexion...');
+    db.ref('planning').on('value',snap=>{
+      const data=snap.val();
+      if(data){
+        if(data.properties) properties=data.properties;
+        if(data.bookings) bookings=data.bookings.filter(Boolean);
+        if(data.nextId) nextId=data.nextId;
+        if(data.owners) owners=data.owners||{};
+        if(data.checklists) checklists=data.checklists||{};
+        if(data.cleaningTasks) cleaningTasks=data.cleaningTasks.filter(Boolean);
+        if(data.nextCleanId) nextCleanId=data.nextCleanId;
+        // Charger propType, propMgmt, propRates depuis les tableaux indexés
+        if(data.propTypeArr&&properties){
+          propType={};
+          properties.forEach((p,i)=>{if(data.propTypeArr[i])propType[p]=data.propTypeArr[i];});
+        } else if(data.propType){propType=data.propType||{};delete propType._placeholder;}
+        if(data.propMgmtArr&&properties){
+          propMgmt={};
+          properties.forEach((p,i)=>{if(data.propMgmtArr[i])propMgmt[p]=data.propMgmtArr[i];});
+        } else if(data.propMgmt){propMgmt=data.propMgmt||{};}
+        if(data.propRatesArr&&properties){
+          propRates={};
+          properties.forEach((p,i)=>{if(data.propRatesArr[i])propRates[p]=data.propRatesArr[i];});
+        } else if(data.propRates){propRates=data.propRates||{};}
+        const s=data.settings||{};
+        if(s.themeId) activeTheme=THEMES.find(t=>t.id===s.themeId)||THEMES[0];
+        if(s.colors) colors=s.colors;
+        if(s.mgmtColors) mgmtColors=Object.assign({},mgmtColors,s.mgmtColors);
+        if(s.cleanColors) cleanColors=Object.assign({},cleanColors,s.cleanColors);
+        if(s.bgOpacity) bgOpacity=s.bgOpacity;
+      }
+      // Autoriser pushData seulement après que Firebase a chargé
+      window.firebaseDataLoaded=true;
+      render();buildThemeChips();
+      setSyncStatus('online','Synchronisé en temps réel');
+    },err=>setSyncStatus('error','Erreur: '+err.message));
+    db.ref('.info/connected').on('value',snap=>setSyncStatus(snap.val()?'online':'syncing',snap.val()?'Synchronisé en temps réel':'Reconnexion...'));
+    localStorage.setItem('fb_url',url);return true;
+  }catch(e){setSyncStatus('error','URL invalide');return false;}
+}
+
+function pushData(){
+  if(!fbEnabled||!db||isReadOnly)return;
+  // Protection : ne jamais écraser Firebase avant que les données soient chargées
+  if(!window.firebaseDataLoaded)return;
+  // Protection : ne jamais écraser Firebase avec des données vides
+  if(properties.length===0&&bookings.filter(Boolean).length===0)return;
+  setSyncStatus('syncing','Enregistrement...');
+  // Stocker propType et propMgmt comme tableaux indexés sur properties pour éviter les problèmes de clés Firebase
+  const propTypeArr=properties.map(p=>propType[p]||'');
+  const propMgmtArr=properties.map(p=>propMgmt[p]||'');
+  const propRatesArr=properties.map(p=>propRates[p]||0);
+  db.ref('planning').set({properties,bookings,nextId,owners,propRatesArr,propMgmtArr,propTypeArr,checklists,cleaningTasks,nextCleanId,settings:{themeId:activeTheme.id,colors,mgmtColors,cleanColors,bgOpacity},updatedAt:Date.now()})
+    .then(()=>setSyncStatus('online','Synchronisé')).catch(e=>setSyncStatus('error',e.message));
+}
+
+function setSyncStatus(state,label){
+  document.getElementById('syncDot').className='sync-dot '+state;
+  document.getElementById('syncLabel').textContent=label;
+}
+
+function loadLocalData(){
+  try{const d=JSON.parse(localStorage.getItem('planning_local')||'{}');
+    if(d.properties)properties=d.properties;if(d.bookings)bookings=d.bookings;
+    if(d.nextId)nextId=d.nextId;if(d.owners)owners=d.owners;
+    if(d.propRates)propRates=d.propRates;if(d.propMgmt)propMgmt=d.propMgmt;if(d.propType)propType=d.propType;
+    if(d.checklists)checklists=d.checklists;
+  }catch(e){}
+}
+function saveLocalData(){if(fbEnabled)return;localStorage.setItem('planning_local',JSON.stringify({properties,bookings,nextId,owners,propRates,propMgmt,propType,checklists}));}
+
+function checkExistingConfig(){
+  if(initFirebase(FIREBASE_URL))return;
+  if(!isReadOnly){loadLocalData();render();setSyncStatus('','Local uniquement');}
+}
+
+document.getElementById('resetConn').addEventListener('click',()=>{if(confirm('Reconfigurer Firebase ?')){localStorage.removeItem('fb_url');location.reload();}});
+
+// ─── STATS ───────────────────────────────────────────────────────────────────
+function computeStats(){
+  const now=new Date(),y=now.getFullYear(),m=now.getMonth();
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const monthStart=ds(new Date(y,m,1)),monthEnd=ds(new Date(y,m+1,0));
+  const visibleProps=getVisibleProps();
+  let totalNights=0,totalRevenue=0,totalPossible=visibleProps.length*daysInMonth;
+  bookings.filter(b=>b&&b.status!=='blocked').forEach(b=>{
+    if(!visibleProps.includes(b.property))return;
+    const s=b.start>monthStart?b.start:monthStart;
+    const e=b.end<monthEnd?b.end:monthEnd;
+    if(s<e){const n=nightsBetween(s,e);totalNights+=n;const rate=b.rate||propRates[b.property]||0;totalRevenue+=n*rate;}
+  });
+  const occ=totalPossible>0?Math.round(totalNights/totalPossible*100):0;
+  const bar=document.getElementById('statsBar');
+  bar.innerHTML=`
+    <div class="stat-card"><div class="stat-val">${occ}%</div><div class="stat-lbl">Taux occupation (${MOIS_C[m]})</div></div>
+    <div class="stat-card"><div class="stat-val">${totalNights}</div><div class="stat-lbl">Nuits réservées (${MOIS_C[m]})</div></div>
+    <div class="stat-card"><div class="stat-val">${totalRevenue>0?totalRevenue.toLocaleString('fr-FR')+'€':'—'}</div><div class="stat-lbl">Revenus estimés (${MOIS_C[m]})</div></div>
+    <div class="stat-card"><div class="stat-val">${visibleProps.length}</div><div class="stat-lbl">Biens affichés</div></div>
+  `;
+}
+
+// ─── FILTER ──────────────────────────────────────────────────────────────────
+const TYPE_LABELS={appartement:'AP',mobilhome:'MH',maison:'Maison',studio:'Studio',autre:'Autre'};
+
+function getVisibleProps(){
+  const ft=document.getElementById('filterType').value;
+  const fp=filterPropValue||document.getElementById('filterProp').value;
+  const search=(document.getElementById('searchInput')||{}).value||'';
+  const sq=search.toLowerCase().trim();
+  let props=properties;
+  if(ft) props=props.filter(p=>propType[p]===ft);
+  if(fp) props=props.filter(p=>p===fp);
+  if(sq) props=props.filter(p=>{
+    if(p.toLowerCase().includes(sq))return true;
+    const own=owners[p];
+    if(own&&own.name&&own.name.toLowerCase().includes(sq))return true;
+    return false;
+  });
+  return props;
+}
+function getFilteredBookings(){
+  const fs=document.getElementById('filterStatus').value;
+  return fs?bookings.filter(b=>b&&b.status===fs):bookings.filter(Boolean);
+}
+function updateFilterSelect(){
+  const ft=document.getElementById('filterType').value;
+  const sel=document.getElementById('filterProp');
+  const cur=sel.value;
+  const filtered=ft?properties.filter(p=>propType[p]===ft):properties;
+  sel.innerHTML='<option value="">Tous les biens</option>'+filtered.map(p=>`<option${p===cur?' selected':''}>${p}</option>`).join('');
+  const ssel=document.getElementById('fShareProp');
+  if(ssel) ssel.innerHTML='<option value="">Tous les biens</option>'+properties.map(p=>`<option>${p}</option>`).join('');
+}
+
+// ─── THEME ───────────────────────────────────────────────────────────────────
+function applyTheme(){
+  const bg=document.getElementById('bgLayer');
+  if(customBg){bg.style.backgroundImage=`url(${customBg})`;bg.style.opacity=bgOpacity/100;}
+  else if(activeTheme.gradient){bg.style.backgroundImage=activeTheme.gradient;bg.style.opacity=1;}
+  else{bg.style.backgroundImage='none';bg.style.background=activeTheme.bg;bg.style.opacity=1;}
+  document.querySelectorAll('th:not(.today-col)').forEach(th=>th.style.background=activeTheme.header);
+  document.querySelectorAll('td.prop-td').forEach(td=>{
+    const mgmt=td.dataset.mgmt||'none';
+    td.style.background=mgmtColors[mgmt]||mgmtColors.none||activeTheme.header;
+  });
+  document.querySelectorAll('td.today-col').forEach(td=>td.style.background=activeTheme.today);
+  document.querySelectorAll('th.today-col').forEach(th=>th.style.background=activeTheme.today);
+  document.querySelectorAll('td.day-cell:not(.today-col)').forEach(td=>td.style.background='rgba(255,255,255,.8)');
+  document.getElementById('ldConfirmed').style.background=colors.confirmed;
+  document.getElementById('ldOption').style.background=colors.option;
+  document.getElementById('ldBlocked').style.background=colors.blocked;
+  document.getElementById('cConfirmed').value=colors.confirmed;
+  document.getElementById('cOption').value=colors.option;
+  document.getElementById('cBlocked').value=colors.blocked;
+  document.getElementById('cMgmtTotale').value=mgmtColors.totale||'#e8f5e9';
+  document.getElementById('cMgmtPartielle').value=mgmtColors.partielle||'#fff8e1';
+  document.getElementById('cMgmtAucune').value=mgmtColors.aucune||'#fce8e8';
+  document.getElementById('cMgmtNone').value=mgmtColors.none||'#f5f5f5';
+  document.getElementById('cCleanInt').value=cleanColors.interieur||'#f59e0b';
+  document.getElementById('cCleanExt').value=cleanColors.exterieur||'#3b82f6';
+  document.getElementById('cCleanDone').value=cleanColors.done||'#22c55e';
+}
+
+function buildThemeChips(){
+  const row=document.getElementById('themesRow');
+  row.innerHTML=THEMES.map(t=>`<div class="theme-chip${t.id===activeTheme.id?' active':''}" data-id="${t.id}"><div class="theme-preview" style="background:${t.preview}"></div>${t.label}</div>`).join('');
+  row.querySelectorAll('.theme-chip').forEach(chip=>{
+    chip.addEventListener('click',()=>{activeTheme=THEMES.find(t=>t.id===chip.dataset.id)||THEMES[0];customBg=null;document.getElementById('bgUpload').value='';buildThemeChips();applyTheme();pushData();});
+  });
+}
+
+// ─── NAVIGATION ──────────────────────────────────────────────────────────────
+function getDays(){
+  if(view==='week')return Array.from({length:7},(_,i)=>addDays(pivot,i));
+  const y=pivot.getFullYear(),m=pivot.getMonth();
+  const first=new Date(y,m,1),start=getMonday(first),last=new Date(y,m+1,0);
+  const days=[];let cur=new Date(start);
+  while(cur<=last||(days.length%7!==0&&days.length>0)){days.push(new Date(cur));cur=addDays(cur,1);}
+  return days;
+}
+function getPeriodLabel(){
+  if(view==='week'){const end=addDays(pivot,6);if(pivot.getMonth()===end.getMonth())return`${pivot.getDate()} – ${end.getDate()} ${MOIS[end.getMonth()]} ${end.getFullYear()}`;return`${pivot.getDate()} ${MOIS_C[pivot.getMonth()]} – ${end.getDate()} ${MOIS_C[end.getMonth()]} ${end.getFullYear()}`;}
+  return`${MOIS[pivot.getMonth()]} ${pivot.getFullYear()}`;
+}
+function navigate(dir){
+  if(view==='week')pivot=addDays(pivot,dir*7);
+  else{const m=pivot.getMonth()+dir;pivot=new Date(pivot.getFullYear(),m,1);}
+  render();
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function render(){
+  document.getElementById('periodLabel').textContent=getPeriodLabel();
+  updateFilterSelect();computeStats();
+  const days=getDays();
+  const visibleProps=getVisibleProps();
+  const filteredBks=getFilteredBookings();
+  const table=document.getElementById('mainTable');
+  let html='<thead><tr><th class="prop-th"><span class="bien-header">Biens</span></th>';
+  days.forEach(d=>{
+    const tod=isToday(d)?' today-col':'';
+    const lbl=view==='week'
+      ?`<div style="font-weight:700;font-size:12px">${JOURS[(d.getDay()+6)%7]}</div><div style="font-weight:600;font-size:11px">${d.getDate()}/${d.getMonth()+1}</div>`
+      :`<div style="font-weight:700;font-size:12px">${JOURS[(d.getDay()+6)%7]}</div><div style="font-weight:600;font-size:11px">${d.getDate()}</div>`;
+    html+=`<th class="${tod}" style="font-size:10px">${lbl}</th>`;
+  });
+  html+='</tr></thead><tbody>';
+
+  // Taux d'occupation par bien ce mois
+  const now=new Date(),y=now.getFullYear(),m=now.getMonth();
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const monthStart=ds(new Date(y,m,1)),monthEnd=ds(new Date(y,m+1,1));
+
+  visibleProps.forEach(prop=>{
+    // Occupation du bien ce mois
+    let occNights=0;
+    filteredBks.filter(b=>b.property===prop&&b.status!=='blocked').forEach(b=>{
+      const s=b.start>monthStart?b.start:monthStart;
+      const e=b.end<monthEnd?b.end:monthEnd;
+      if(s<e) occNights+=nightsBetween(s,e);
+    });
+    const occPct=Math.round(occNights/daysInMonth*100);
+    const hasOwner=owners[prop]&&owners[prop].name;
+    const mgmt=propMgmt[prop]||'';
+    const mgmtBadge=mgmt==='totale'?'<span class="mgmt-badge mgmt-totale">Totale</span>':mgmt==='partielle'?'<span class="mgmt-badge mgmt-partielle">Partielle</span>':mgmt==='aucune'?'<span class="mgmt-badge mgmt-aucune">Sans gest.</span>':'';
+    const typ=propType[prop]||'';
+    const typBadge=typ?`<span class="type-badge">${TYPE_LABELS[typ]||typ}</span>`:'';
+    // Trouver prochain séjour pour check-list
+    const today=ds(new Date());
+    const nextBk=bookings.filter(b=>b&&b.property===prop&&b.status!=='blocked'&&b.end>today).sort((a,b)=>a.start.localeCompare(b.start))[0];
+    const ckKey=nextBk?`${prop}_${nextBk.start}`:null;
+    const ckDone=ckKey&&checklists[ckKey]?checklists[ckKey].tasks.filter(t=>t.done).length:0;
+    const ckTotal=ckKey&&checklists[ckKey]?checklists[ckKey].tasks.length:0;
+    const ckLabel=ckKey?(ckTotal>0?` ${ckDone}/${ckTotal}`:''):'';
+    html+=`<tr><td class="prop-td" data-mgmt="${propMgmt[prop]||'none'}">
+      <span class="pname" title="${prop}">${prop}</span>${mgmtBadge}${typBadge}
+      <span class="prop-rate">${occPct}% ce mois</span>
+      ${!isReadOnly?`<button class="owner-btn" data-prop="${prop}" title="Fiche propriétaire">${hasOwner?'👤':'👤+'}</button>`:''}
+      ${!isReadOnly?`<button class="owner-btn clean-btn" data-prop="${prop}" data-bkid="${nextBk?nextBk.id:''}" title="Check-list ménage prochain séjour">🧹${ckLabel}</button>`:''}
+      ${!isReadOnly?`<button class="del-prop" data-prop="${prop}" title="Supprimer">✕</button>`:''}
+    </td>`;
+
+    const propBks=filteredBks.filter(b=>b.property===prop);
+    const segs=[];
+    propBks.forEach(b=>{
+      const dayStrs=days.map(d=>ds(d));
+      let left=-1,right=-1;
+      for(let i=0;i<dayStrs.length;i++){if(dayStrs[i]>=b.start&&dayStrs[i]<=b.end){if(left===-1)left=i;right=i;}}
+      if(left!==-1)segs.push({b,left,right});
+    });
+
+    days.forEach((d,i)=>{
+      const tod=isToday(d)?' today-col':'';
+      const here=segs.filter(s=>i>=s.left&&i<=s.right);
+      const dayStr=ds(d);
+      const cleanHere=cleaningTasks.filter(c=>c&&c.property===prop&&c.date===dayStr);
+      let inner='';
+      here.forEach(({b,left,right})=>{
+        if(i!==left)return;
+        const span=right-left+1;
+        const col=colors[b.status]||'#888';
+        const tc=textColor(col);
+        const isArr=b.start===ds(d);
+        const isDep=b.end===ds(addDays(d,span));
+        const label=b.name||(b.status==='blocked'?'Bloqué':'');
+        const plat=b.platform?` · ${b.platform}`:'';
+        const nights=nightsBetween(b.start,b.end);
+        const rr=span<days.length?'0px':'2px';
+        const hasNote=b.notes&&b.notes.trim();
+        inner+=`<div class="seg" data-id="${b.id}" style="left:2px;width:calc(${span*100}% - 4px);border-radius:3px ${rr} ${rr} 3px;background:${col};color:${tc};">
+          <div class="seg-inner">${isArr?'▶ ':''}${label}${plat}${hasNote?' 📝':''}${isDep?' ◀':''}<span class="night-badge">${nights}n</span></div>
+        </div>`;
+      });
+      cleanHere.forEach(c=>{
+        const done=c.status==='done';
+        const col=done?cleanColors.done:(c.type==='exterieur'?cleanColors.exterieur:cleanColors.interieur);
+        const label=done?'✓':(c.type==='exterieur'?'Ext.':'Int.');
+        inner+=`<div class="clean-seg" data-cleanid="${c.id}" style="position:absolute;bottom:2px;left:2px;right:2px;height:13px;background:${col};border-radius:3px;display:flex;align-items:center;justify-content:center;gap:2px;font-size:8px;font-weight:700;color:#fff;cursor:pointer;z-index:3;" title="${done?'Ménage effectué':'Ménage à faire - '+(c.type==='exterieur'?'Extérieur':'Intérieur')}">🧹 ${label}</div>`;
+      });
+      if(here.length===0&&cleanHere.length===0)inner=`<div style="width:100%;height:100%" data-add="${prop}|${ds(d)}"></div>`;
+      html+=`<td class="day-cell${tod}" data-prop="${prop}" data-date="${ds(d)}">${inner}</td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</tbody>';
+  table.innerHTML=html;
+
+  table.querySelectorAll('.seg').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();openEdit(parseInt(el.dataset.id));}));
+  table.querySelectorAll('.clean-seg').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();openCleaningEdit(parseInt(el.dataset.cleanid));}));
+  table.querySelectorAll('[data-add]').forEach(el=>el.addEventListener('click',e=>{if(isReadOnly)return;e.stopPropagation();const[p,d]=el.dataset.add.split('|');openNew(p,d);}));
+  table.querySelectorAll('.owner-btn:not(.clean-btn)').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();openOwnerView(el.dataset.prop);}));
+  table.querySelectorAll('.clean-btn').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();openChecklistFromProp(el.dataset.prop,el.dataset.bkid);}));
+  table.querySelectorAll('.del-prop').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();delProp(el.dataset.prop);}));
+  table.querySelectorAll('.pname').forEach(el=>el.addEventListener('click',e=>{if(isReadOnly)return;e.stopPropagation();openPropModal(el.title);}));
+  table.querySelectorAll('.day-cell').forEach(el=>el.addEventListener('click',()=>{if(isReadOnly)return;openNew(el.dataset.prop,el.dataset.date);}));
+  table.querySelectorAll('.prop-td').forEach(el=>{const name=el.querySelector('.pname');if(name)addLongPress(el,name.title);});
+  applyTheme();
+}
+
+// ─── OVERLAP CHECK ───────────────────────────────────────────────────────────
+function checkOverlap(prop,start,end,excludeId=null){
+  return bookings.some(b=>b&&b.property===prop&&b.id!==excludeId&&b.start<end&&b.end>start);
+}
+
+// ─── BOOKING CRUD ────────────────────────────────────────────────────────────
+function fillPropSelect(sel){document.getElementById('fProp').innerHTML=properties.map(p=>`<option${p===sel?' selected':''}>${p}</option>`).join('');}
+
+function updateNightCount(){
+  const s=document.getElementById('fStart').value,e=document.getElementById('fEnd').value;
+  const el=document.getElementById('nightCount');
+  if(s&&e&&s<e){const n=nightsBetween(s,e);el.textContent=`${n} nuit${n>1?'s':''}`;el.style.display='block';}
+  else el.style.display='none';
+  checkOverlapInForm();
+}
+
+function checkOverlapInForm(){
+  const prop=document.getElementById('fProp').value;
+  const s=document.getElementById('fStart').value,e=document.getElementById('fEnd').value;
+  const warn=document.getElementById('overlapWarn');
+  if(prop&&s&&e&&s<e&&checkOverlap(prop,s,e,editId)) warn.style.display='block';
+  else warn.style.display='none';
+}
+
+function openNew(prop,date){
+  editId=null;
+  document.getElementById('mTitle').textContent='Nouvelle réservation';
+  document.getElementById('delBtn').style.display='none';
+  document.getElementById('checklistBtn').style.display='none';
+  document.getElementById('overlapWarn').style.display='none';
+  fillPropSelect(prop);
+  document.getElementById('fName').value='';
+  document.getElementById('fStart').value=date||'';
+  document.getElementById('fEnd').value=date?ds(addDays(pd(date),1)):'';
+  document.getElementById('fPlat').value='';
+  document.getElementById('fStatus').value='confirmed';
+  document.getElementById('fNotes').value='';
+  document.getElementById('fRate').value=propRates[prop]||'';
+  document.getElementById('nightCount').style.display='none';
+  document.getElementById('bookingModal').style.display='flex';
+}
+
+function openEdit(id){
+  const b=bookings.find(x=>x&&x.id===id);if(!b)return;
+  editId=id;
+  document.getElementById('mTitle').textContent='Modifier la réservation';
+  document.getElementById('delBtn').style.display=isReadOnly?'none':'block';
+  document.getElementById('checklistBtn').style.display='block';
+  document.getElementById('overlapWarn').style.display='none';
+  fillPropSelect(b.property);
+  document.getElementById('fName').value=b.name||'';
+  document.getElementById('fStart').value=b.start;
+  document.getElementById('fEnd').value=b.end;
+  document.getElementById('fPlat').value=b.platform||'';
+  document.getElementById('fStatus').value=b.status;
+  document.getElementById('fNotes').value=b.notes||'';
+  document.getElementById('fRate').value=b.rate||propRates[b.property]||'';
+  updateNightCount();
+  document.getElementById('bookingModal').style.display='flex';
+  if(isReadOnly){document.getElementById('saveBtn').style.display='none';document.getElementById('delBtn').style.display='none';}
+  else document.getElementById('saveBtn').style.display='';
+}
+
+function closeModal(){document.getElementById('bookingModal').style.display='none';editId=null;}
+
+document.getElementById('saveBtn').addEventListener('click',()=>{
+  if(isReadOnly)return;
+  const prop=document.getElementById('fProp').value,name=document.getElementById('fName').value.trim();
+  const start=document.getElementById('fStart').value,end=document.getElementById('fEnd').value;
+  const platform=document.getElementById('fPlat').value,status=document.getElementById('fStatus').value;
+  const notes=document.getElementById('fNotes').value.trim();
+  const rate=parseFloat(document.getElementById('fRate').value)||0;
+  if(!start||!end){alert('Dates obligatoires.');return;}
+  if(start>=end){alert('Le départ doit être après l\'arrivée.');return;}
+  if(checkOverlap(prop,start,end,editId)&&!confirm('Ce bien est déjà réservé sur cette période. Continuer quand même ?'))return;
+  if(editId!=null){const idx=bookings.findIndex(x=>x&&x.id===editId);if(idx!==-1)bookings[idx]={...bookings[idx],property:prop,name,start,end,platform,status,notes,rate};}
+  else bookings.push({id:nextId++,property:prop,name,start,end,platform,status,notes,rate});
+  closeModal();render();pushData();saveLocalData();
+});
+
+document.getElementById('delBtn').addEventListener('click',()=>{if(!confirm('Supprimer ?'))return;bookings=bookings.filter(b=>b&&b.id!==editId);closeModal();render();pushData();saveLocalData();});
+document.getElementById('cancelBtn').addEventListener('click',closeModal);
+document.getElementById('fStart').addEventListener('change',updateNightCount);
+document.getElementById('fEnd').addEventListener('change',updateNightCount);
+document.getElementById('fProp').addEventListener('change',checkOverlapInForm);
+
+// ─── CHECKLIST ───────────────────────────────────────────────────────────────
+function openChecklistFromProp(prop, bkid){
+  const b=bkid?bookings.find(x=>x&&x.id===parseInt(bkid)):null;
+  if(!b){
+    // Pas de réservation à venir — créer une check-list générique pour le bien
+    currentChecklistKey=`${prop}_general`;
+    if(!checklists[currentChecklistKey]) checklists[currentChecklistKey]={tasks:DEFAULT_TASKS.map(t=>({label:t,done:false}))};
+    document.getElementById('checklistProp').textContent=`${prop} — check-list générale`;
+  } else {
+    currentChecklistKey=`${prop}_${b.start}`;
+    if(!checklists[currentChecklistKey]) checklists[currentChecklistKey]={tasks:DEFAULT_TASKS.map(t=>({label:t,done:false}))};
+    document.getElementById('checklistProp').textContent=`${prop} — arrivée le ${b.start}${b.name?' ('+b.name+')':''}`;
+  }
+  renderChecklist();
+  document.getElementById('checklistModal').style.display='flex';
+}
+
+document.getElementById('checklistBtn').addEventListener('click',()=>{
+  const b=bookings.find(x=>x&&x.id===editId);if(!b)return;
+  currentChecklistKey=`${b.property}_${b.start}`;
+  if(!checklists[currentChecklistKey]) checklists[currentChecklistKey]={tasks:DEFAULT_TASKS.map(t=>({label:t,done:false}))};
+  document.getElementById('checklistProp').textContent=`${b.property} — arrivée ${b.start}`;
+  renderChecklist();
+  closeModal();
+  document.getElementById('checklistModal').style.display='flex';
+});
+
+function renderChecklist(){
+  const tasks=checklists[currentChecklistKey]?.tasks||[];
+  document.getElementById('checklistItems').innerHTML=tasks.map((t,i)=>`
+    <div class="checklist-item">
+      <input type="checkbox" id="task${i}" ${t.done?'checked':''} data-i="${i}">
+      <label for="task${i}" class="${t.done?'done':''}">${t.label}</label>
+      <button style="background:none;border:none;cursor:pointer;color:#ccc;font-size:11px" data-del="${i}">✕</button>
+    </div>`).join('');
+  document.getElementById('checklistItems').querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change',()=>{checklists[currentChecklistKey].tasks[parseInt(cb.dataset.i)].done=cb.checked;renderChecklist();pushData();saveLocalData();});
+  });
+  document.getElementById('checklistItems').querySelectorAll('[data-del]').forEach(btn=>{
+    btn.addEventListener('click',()=>{checklists[currentChecklistKey].tasks.splice(parseInt(btn.dataset.del),1);renderChecklist();pushData();saveLocalData();});
+  });
+}
+
+document.getElementById('addTaskBtn').addEventListener('click',()=>{
+  const v=document.getElementById('newTaskInput').value.trim();if(!v)return;
+  checklists[currentChecklistKey].tasks.push({label:v,done:false});
+  document.getElementById('newTaskInput').value='';renderChecklist();pushData();saveLocalData();
+});
+document.getElementById('checklistCloseBtn').addEventListener('click',()=>document.getElementById('checklistModal').style.display='none');
+
+// ─── PROPERTY CRUD ───────────────────────────────────────────────────────────
+let editingProp=null;
+
+function openPropModal(prop=null){
+  editingProp=prop;
+  document.getElementById('propModalTitle').textContent=prop?'Modifier le bien':'Ajouter un bien';
+  document.getElementById('fPropName').value=prop||'';
+  document.getElementById('fPropType').value=prop&&propType[prop]?propType[prop]:'';
+  document.getElementById('fPropRate').value=prop&&propRates[prop]?propRates[prop]:'';
+  document.getElementById('fPropMgmt').value=prop&&propMgmt[prop]?propMgmt[prop]:'';
+  document.getElementById('pDelBtn').style.display=prop?'block':'none';
+  document.getElementById('propModal').style.display='flex';
+  setTimeout(()=>document.getElementById('fPropName').focus(),100);
+}
+
+function delProp(prop){
+  if(!confirm(`Supprimer "${prop}" et toutes ses réservations ?`))return;
+  properties=properties.filter(p=>p!==prop);
+  bookings=bookings.filter(b=>b.property!==prop);
+  delete owners[prop];delete propRates[prop];delete propMgmt[prop];delete propType[prop];
+  render();pushData();saveLocalData();
+}
+
+document.getElementById('addPropBtn').addEventListener('click',()=>openPropModal());
+
+document.getElementById('pDelBtn').addEventListener('click',()=>{
+  document.getElementById('propModal').style.display='none';
+  delProp(editingProp);
+  editingProp=null;
+});
+
+document.getElementById('pCancelBtn').addEventListener('click',()=>{document.getElementById('propModal').style.display='none';editingProp=null;});
+
+document.getElementById('pSaveBtn').addEventListener('click',()=>{
+  const newName=document.getElementById('fPropName').value.trim();
+  const rate=parseFloat(document.getElementById('fPropRate').value)||0;
+  const mgmt=document.getElementById('fPropMgmt').value;
+  const typ=document.getElementById('fPropType').value;
+  if(!newName)return;
+  if(editingProp){
+    if(newName!==editingProp){
+      if(properties.includes(newName)&&newName!==editingProp){alert('Un bien avec ce nom existe déjà.');return;}
+      const idx=properties.indexOf(editingProp);
+      if(idx!==-1)properties[idx]=newName;
+      bookings.forEach(b=>{if(b&&b.property===editingProp)b.property=newName;});
+      if(owners[editingProp]){owners[newName]=owners[editingProp];delete owners[editingProp];}
+      if(propRates[editingProp]){propRates[newName]=propRates[editingProp];delete propRates[editingProp];}
+      if(propMgmt[editingProp]){propMgmt[newName]=propMgmt[editingProp];delete propMgmt[editingProp];}
+      if(propType[editingProp]){propType[newName]=propType[editingProp];delete propType[editingProp];}
+    }
+    if(rate)propRates[newName]=rate; else delete propRates[newName];
+    if(mgmt)propMgmt[newName]=mgmt; else delete propMgmt[newName];
+    if(typ)propType[newName]=typ; else delete propType[newName];
+  } else {
+    if(!properties.includes(newName))properties.push(newName);
+    if(rate)propRates[newName]=rate; else delete propRates[newName];
+    if(mgmt)propMgmt[newName]=mgmt; else delete propMgmt[newName];
+    if(typ)propType[newName]=typ; else delete propType[newName];
+  }
+  // Tri automatique par préfixe (AP, MH, etc.) puis alphabétique
+  properties.sort((a,b)=>{
+    const prefA=a.match(/^[A-Z]+/i)?a.match(/^[A-Z]+/i)[0].toUpperCase():'';
+    const prefB=b.match(/^[A-Z]+/i)?b.match(/^[A-Z]+/i)[0].toUpperCase():'';
+    if(prefA<prefB)return -1;
+    if(prefA>prefB)return 1;
+    return a.localeCompare(b,'fr',{numeric:true});
+  });
+  editingProp=null;
+  document.getElementById('propModal').style.display='none';
+  render();pushData();saveLocalData();
+});
+
+// ─── OWNER ───────────────────────────────────────────────────────────────────
+function openOwnerView(prop){
+  currentOwnerProp=prop;const o=owners[prop]||{};
+  const initials=o.name?o.name.split(' ').filter(w=>w.length>0).slice(0,2).map(w=>w[0].toUpperCase()).join(''):'?';
+  document.getElementById('ownerAvatar').textContent=initials;
+  document.getElementById('ownerViewName').textContent=o.name||'Aucun propriétaire renseigné';
+  document.getElementById('ownerViewProp').textContent=prop;
+  const setRow=(id,show,linkId,href,text)=>{document.getElementById(id).style.display=show?'flex':'none';if(show&&linkId){const l=document.getElementById(linkId);l.href=href;l.textContent=text;}};
+  setRow('ownerViewPhone',!!o.phone,'ownerPhoneLink','tel:'+(o.phone||'').replace(/\s/g,''),o.phone);
+  setRow('ownerViewEmail',!!o.email,'ownerEmailLink','mailto:'+o.email,o.email);
+  if(o.note){document.getElementById('ownerViewNote').style.display='flex';document.getElementById('ownerNoteText').textContent=o.note;}else document.getElementById('ownerViewNote').style.display='none';
+  const rate=propRates[prop];
+  if(rate){document.getElementById('ownerViewRate').style.display='flex';document.getElementById('ownerRateText').textContent=rate+'€ / nuit';}else document.getElementById('ownerViewRate').style.display='none';
+  document.getElementById('ownerViewModal').style.display='flex';
+}
+
+document.getElementById('ownerViewEditBtn').addEventListener('click',()=>{
+  const o=owners[currentOwnerProp]||{};
+  document.getElementById('ownerModalProp').textContent=currentOwnerProp;
+  document.getElementById('fOwnerName').value=o.name||'';document.getElementById('fOwnerPhone').value=o.phone||'';
+  document.getElementById('fOwnerEmail').value=o.email||'';document.getElementById('fOwnerNote').value=o.note||'';
+  document.getElementById('ownerViewModal').style.display='none';document.getElementById('ownerModal').style.display='flex';
+});
+document.getElementById('ownerViewCloseBtn').addEventListener('click',()=>document.getElementById('ownerViewModal').style.display='none');
+document.getElementById('ownerCancelBtn').addEventListener('click',()=>document.getElementById('ownerModal').style.display='none');
+document.getElementById('ownerSaveBtn').addEventListener('click',()=>{
+  owners[currentOwnerProp]={name:document.getElementById('fOwnerName').value.trim(),phone:document.getElementById('fOwnerPhone').value.trim(),email:document.getElementById('fOwnerEmail').value.trim(),note:document.getElementById('fOwnerNote').value.trim()};
+  document.getElementById('ownerModal').style.display='none';render();pushData();saveLocalData();
+});
+
+// ─── SHARE (lecture seule) ────────────────────────────────────────────────────
+document.getElementById('shareBtn').addEventListener('click',()=>{
+  document.getElementById('fShareProp').innerHTML='<option value="">Tous les biens</option>'+properties.map(p=>`<option>${p}</option>`).join('');
+  updateShareUrl();document.getElementById('shareModal').style.display='flex';
+});
+function updateShareUrl(){
+  const prop=document.getElementById('fShareProp').value;
+  const base=window.location.href.split('?')[0];
+  const url=base+'?readonly=1'+(prop?'&prop='+encodeURIComponent(prop):'');
+  document.getElementById('shareUrl').value=url;
+}
+document.getElementById('fShareProp').addEventListener('change',updateShareUrl);
+document.getElementById('copyShareBtn').addEventListener('click',()=>{
+  navigator.clipboard.writeText(document.getElementById('shareUrl').value).then(()=>showToast('Lien copié !')).catch(()=>{document.getElementById('shareUrl').select();document.execCommand('copy');showToast('Lien copié !');});
+});
+document.getElementById('shareCloseBtn').addEventListener('click',()=>document.getElementById('shareModal').style.display='none');
+
+// ─── CLEANING TASKS ──────────────────────────────────────────────────────────
+function openCleaningList(){
+  const modal=document.getElementById('cleaningListModal');
+  renderCleaningList();
+  modal.style.display='flex';
+}
+function renderCleaningList(){
+  const content=document.getElementById('cleaningListContent');
+  const sorted=[...cleaningTasks].filter(Boolean).sort((a,b)=>a.date.localeCompare(b.date));
+  if(sorted.length===0){content.innerHTML='<p style="color:#888;text-align:center;padding:20px">Aucun ménage planifié</p>';return;}
+  content.innerHTML=sorted.map(t=>{
+    const done=t.status==='done';
+    const col=done?cleanColors.done:(t.type==='exterieur'?cleanColors.exterieur:cleanColors.interieur);
+    const typeLabel=t.type==='exterieur'?'🌿 Extérieur':'🏠 Intérieur';
+    const statusLabel=done?'✅ Effectué':'🕐 À faire';
+    return `<div style="border-left:4px solid ${col};border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fafafa;cursor:pointer;border-top:1px solid #e0e0e0;border-right:1px solid #e0e0e0;border-bottom:1px solid #e0e0e0;" data-cleanid="${t.id}">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong style="font-size:13px">${t.property}</strong>
+        <span style="font-size:11px;color:${col};font-weight:600">${statusLabel}</span>
+      </div>
+      <div style="font-size:11px;color:#fff;background:${col};display:inline-block;padding:1px 6px;border-radius:4px;margin-top:4px">${typeLabel}</div>
+      <div style="font-size:12px;color:#555;margin-top:4px">📅 ${t.date}${t.time?' à '+t.time:''}</div>
+      ${t.person?`<div style="font-size:12px;color:#555">👤 ${t.person}</div>`:''}
+      ${t.notes?`<div style="font-size:12px;color:#888;margin-top:4px">${t.notes}</div>`:''}
+    </div>`;
+  }).join('');
+  content.querySelectorAll('[data-cleanid]').forEach(el=>el.addEventListener('click',()=>openCleaningEdit(parseInt(el.dataset.cleanid))));
+}
+function openCleaningNew(){
+  currentCleanId=null;
+  document.getElementById('cleaningListModal').style.display='none';
+  document.getElementById('fCleanProp').innerHTML=properties.map(p=>`<option>${p}</option>`).join('');
+  document.getElementById('fCleanType').value='interieur';
+  document.getElementById('fCleanDate').value=ds(new Date());
+  document.getElementById('fCleanTime').value='';
+  document.getElementById('fCleanPerson').value='';
+  document.getElementById('fCleanNotes').value='';
+  document.getElementById('fCleanStatus').value='todo';
+  document.getElementById('cleanDeleteBtn').style.display='none';
+  document.getElementById('cleaningModal').style.display='flex';
+}
+function openCleaningEdit(id){
+  const t=cleaningTasks.find(c=>c&&c.id===id);
+  if(!t)return;
+  currentCleanId=id;
+  document.getElementById('cleaningListModal').style.display='none';
+  document.getElementById('fCleanProp').innerHTML=properties.map(p=>`<option${p===t.property?' selected':''}>${p}</option>`).join('');
+  document.getElementById('fCleanType').value=t.type||'interieur';
+  document.getElementById('fCleanDate').value=t.date||'';
+  document.getElementById('fCleanTime').value=t.time||'';
+  document.getElementById('fCleanPerson').value=t.person||'';
+  document.getElementById('fCleanNotes').value=t.notes||'';
+  document.getElementById('fCleanStatus').value=t.status||'todo';
+  document.getElementById('cleanDeleteBtn').style.display='inline-block';
+  document.getElementById('cleaningModal').style.display='flex';
+}
+document.getElementById('addCleanBtn').addEventListener('click',openCleaningList);
+document.getElementById('cleaningListCloseBtn').addEventListener('click',()=>document.getElementById('cleaningListModal').style.display='none');
+document.getElementById('addCleaningBtn').addEventListener('click',openCleaningNew);
+document.getElementById('cleanCancelBtn').addEventListener('click',()=>{document.getElementById('cleaningModal').style.display='none';document.getElementById('cleaningListModal').style.display='flex';renderCleaningList();});
+document.getElementById('cleanSaveBtn').addEventListener('click',()=>{
+  const prop=document.getElementById('fCleanProp').value;
+  const date=document.getElementById('fCleanDate').value;
+  if(!prop||!date){showToast('Bien et date requis');return;}
+  const id=currentCleanId!==null?parseInt(currentCleanId):nextCleanId++;
+  const task={id,property:prop,type:document.getElementById('fCleanType').value,date,time:document.getElementById('fCleanTime').value,person:document.getElementById('fCleanPerson').value,notes:document.getElementById('fCleanNotes').value,status:document.getElementById('fCleanStatus').value};
+  if(currentCleanId!==null){cleaningTasks=cleaningTasks.map(c=>c&&parseInt(c.id)===parseInt(currentCleanId)?task:c);}
+  else{cleaningTasks.push(task);}
+  document.getElementById('cleaningModal').style.display='none';
+  document.getElementById('cleaningListModal').style.display='flex';
+  renderCleaningList();pushData();render();showToast('Ménage enregistré ✓');
+});
+document.getElementById('cleanDeleteBtn').addEventListener('click',()=>{
+  if(!confirm('Supprimer ce ménage ?'))return;
+  cleaningTasks=cleaningTasks.filter(c=>c&&parseInt(c.id)!==parseInt(currentCleanId));
+  document.getElementById('cleaningModal').style.display='none';
+  document.getElementById('cleaningListModal').style.display='flex';
+  renderCleaningList();pushData();render();showToast('Ménage supprimé');
+});
+
+// ─── PDF EXPORT ──────────────────────────────────────────────────────────────
+document.getElementById('exportBtn').addEventListener('click',()=>window.print());
+
+// ─── NAV EVENTS ──────────────────────────────────────────────────────────────
+document.getElementById('prevBtn').addEventListener('click',()=>navigate(-1));
+document.getElementById('nextBtn').addEventListener('click',()=>navigate(1));
+document.getElementById('addBookBtn').addEventListener('click',()=>openNew('',''));
+document.getElementById('todayBtn').addEventListener('click',()=>{
+  if(view==='week')pivot=getMonday(new Date());
+  else pivot=new Date(new Date().getFullYear(),new Date().getMonth(),1);
+  render();
+});
+document.getElementById('vWeek').addEventListener('click',()=>{view='week';pivot=getMonday(new Date());document.getElementById('vWeek').classList.add('active');document.getElementById('vMonth').classList.remove('active');render();});
+document.getElementById('vMonth').addEventListener('click',()=>{view='month';pivot=new Date(new Date().getFullYear(),new Date().getMonth(),1);document.getElementById('vMonth').classList.add('active');document.getElementById('vWeek').classList.remove('active');render();});
+document.getElementById('settingsBtn').addEventListener('click',()=>document.getElementById('settingsPanel').classList.toggle('open'));
+['Confirmed','Option','Blocked'].forEach(k=>{document.getElementById('c'+k).addEventListener('input',function(){colors[k.toLowerCase()]=this.value;render();pushData();});});
+['Totale','Partielle','Aucune','None'].forEach(k=>{document.getElementById('cMgmt'+k).addEventListener('input',function(){mgmtColors[k.toLowerCase()]=this.value;applyTheme();pushData();});});
+document.getElementById('cCleanInt').addEventListener('input',function(){cleanColors.interieur=this.value;render();pushData();});
+document.getElementById('cCleanExt').addEventListener('input',function(){cleanColors.exterieur=this.value;render();pushData();});
+document.getElementById('cCleanDone').addEventListener('input',function(){cleanColors.done=this.value;render();pushData();});
+document.getElementById('bgUpload').addEventListener('change',function(){const file=this.files[0];if(!file)return;const r=new FileReader();r.onload=e=>{customBg=e.target.result;applyTheme();};r.readAsDataURL(file);});
+document.getElementById('bgClear').addEventListener('click',()=>{customBg=null;document.getElementById('bgUpload').value='';applyTheme();});
+document.getElementById('bgOpacity').addEventListener('input',function(){bgOpacity=parseInt(this.value);document.getElementById('bgOpacityVal').textContent=bgOpacity+'%';if(customBg)applyTheme();pushData();});
+document.getElementById('filterType').addEventListener('change',()=>render());
+document.getElementById('filterProp').addEventListener('change',()=>render());
+
+// ─── FILTRE BIENS RECHERCHE ───────────────────────────────────────────────────
+let filterPropValue='';
+function initPropSearch(){
+  const input=document.getElementById('filterPropSearch');
+  const dropdown=document.getElementById('filterPropDropdown');
+  function showDropdown(list){
+    dropdown.innerHTML=list.length===0?'<div style="padding:8px 12px;font-size:12px;color:#aaa">Aucun résultat</div>':
+      '<div style="padding:5px 12px;font-size:11px;color:#888;cursor:pointer" data-val="">Tous les biens</div>'+
+      list.map(p=>`<div style="padding:6px 12px;font-size:12px;cursor:pointer;border-top:1px solid #f0f0f0" data-val="${p}">${p}</div>`).join('');
+    dropdown.style.display='block';
+    dropdown.querySelectorAll('[data-val]').forEach(el=>el.addEventListener('mousedown',e=>{
+      e.preventDefault();
+      filterPropValue=el.dataset.val;
+      input.value=el.dataset.val||'';
+      dropdown.style.display='none';
+      render();
+    }));
+  }
+  input.addEventListener('input',()=>{
+    const q=input.value.toLowerCase().trim();
+    filterPropValue='';
+    const filtered=properties.filter(p=>p.toLowerCase().includes(q));
+    if(q===''){dropdown.style.display='none';render();return;}
+    showDropdown(filtered);
+    render();
+  });
+  input.addEventListener('focus',()=>{
+    if(input.value==='')showDropdown(properties);
+  });
+  input.addEventListener('blur',()=>setTimeout(()=>dropdown.style.display='none',150));
+}
+initPropSearch();
+document.getElementById('filterStatus').addEventListener('change',()=>render());
+document.getElementById('searchInput').addEventListener('input',()=>render());
+
+// ─── LONG PRESS ──────────────────────────────────────────────────────────────
+let toastTimer=null,pressTimer=null;
+function addLongPress(el,name){
+  el.addEventListener('touchstart',()=>{pressTimer=setTimeout(()=>showToast(name),600);},{passive:true});
+  el.addEventListener('touchend',()=>clearTimeout(pressTimer));
+  el.addEventListener('touchmove',()=>clearTimeout(pressTimer));
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+const FIREBASE_URL='https://calendrier-infinity-default-rtdb.europe-west1.firebasedatabase.app';
+document.getElementById('bookingModal').style.display='none';
+buildThemeChips();
+
+if(isReadOnly){
+  // Mode lecture seule : on se connecte Firebase directement
+  initFirebase(FIREBASE_URL);
+  if(readOnlyProp){
+    document.getElementById('filterProp').value=readOnlyProp;
+    setTimeout(()=>{document.getElementById('filterProp').value=readOnlyProp;render();},1000);
+  }
+} else {
+  checkExistingConfig();
+}
+</script>
+</body>
+</html>
