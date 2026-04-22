@@ -316,6 +316,10 @@ td.day-cell:hover{filter:brightness(.94);}
       <span class="owner-info-icon">💶</span>
       <div><div class="owner-info-label">Tarif nuit</div><span id="ownerRateText">—</span></div>
     </div>
+    <div id="ownerViewGift" class="owner-info-row" style="display:none">
+      <span class="owner-info-icon">🎁</span>
+      <div><div class="owner-info-label">Boîte cadeau</div><span id="ownerGiftText">—</span></div>
+    </div>
     <div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end">
       <button class="btn-c edit-only" id="ownerViewEditBtn">Modifier</button>
       <button class="btn-c" id="ownerViewCloseBtn">Fermer</button>
@@ -332,6 +336,19 @@ td.day-cell:hover{filter:brightness(.94);}
     <div class="fg"><label>Téléphone</label><input type="tel" id="fOwnerPhone" placeholder="ex: 06 12 34 56 78"/></div>
     <div class="fg"><label>Email</label><input type="email" id="fOwnerEmail" placeholder="ex: jean@email.com"/></div>
     <div class="fg"><label>Note</label><input type="text" id="fOwnerNote" placeholder="ex: contrat signé le..."/></div>
+    <div class="fg"><label>🎁 Boîte cadeau locataires</label>
+      <div style="display:flex;gap:12px;margin-top:4px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="radio" name="fGiftBox" id="fGiftBoxYes" value="oui"> ✅ Oui
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="radio" name="fGiftBox" id="fGiftBoxNo" value="non"> 🚫 Non
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="radio" name="fGiftBox" id="fGiftBoxNone" value="" checked> — Non renseigné
+        </label>
+      </div>
+    </div>
     <div class="mactions">
       <button class="btn-c" id="ownerCancelBtn">Annuler</button>
       <button class="btn-s" id="ownerSaveBtn">Enregistrer</button>
@@ -1066,6 +1083,10 @@ function openOwnerView(prop){
     document.getElementById('ownerViewRate').style.display='flex';
     document.getElementById('ownerRateText').innerHTML=tariffs.map(t=>`<div style="font-size:11px">${t.from} → ${t.to} : <strong>${t.rate}€/${t.unit}</strong>${t.minStay?' · min '+t.minStay+' '+t.minUnit:''}</div>`).join('');
   } else {document.getElementById('ownerViewRate').style.display='none';}
+  if(o.giftBox){
+    document.getElementById('ownerViewGift').style.display='flex';
+    document.getElementById('ownerGiftText').innerHTML=o.giftBox==='oui'?'<span style="color:#22c55e;font-weight:600">✅ Oui</span>':'<span style="color:#c62828;font-weight:600">🚫 Non</span>';
+  } else {document.getElementById('ownerViewGift').style.display='none';}
   document.getElementById('ownerViewModal').style.display='flex';
 }
 
@@ -1074,12 +1095,15 @@ document.getElementById('ownerViewEditBtn').addEventListener('click',()=>{
   document.getElementById('ownerModalProp').textContent=currentOwnerProp;
   document.getElementById('fOwnerName').value=o.name||'';document.getElementById('fOwnerPhone').value=o.phone||'';
   document.getElementById('fOwnerEmail').value=o.email||'';document.getElementById('fOwnerNote').value=o.note||'';
+  const giftVal=o.giftBox||'';
+  document.querySelectorAll('input[name="fGiftBox"]').forEach(r=>r.checked=(r.value===giftVal));
   document.getElementById('ownerViewModal').style.display='none';document.getElementById('ownerModal').style.display='flex';
 });
 document.getElementById('ownerViewCloseBtn').addEventListener('click',()=>document.getElementById('ownerViewModal').style.display='none');
 document.getElementById('ownerCancelBtn').addEventListener('click',()=>document.getElementById('ownerModal').style.display='none');
 document.getElementById('ownerSaveBtn').addEventListener('click',()=>{
-  owners[currentOwnerProp]={name:document.getElementById('fOwnerName').value.trim(),phone:document.getElementById('fOwnerPhone').value.trim(),email:document.getElementById('fOwnerEmail').value.trim(),note:document.getElementById('fOwnerNote').value.trim()};
+  const giftBox=document.querySelector('input[name="fGiftBox"]:checked')?.value||'';
+  owners[currentOwnerProp]={name:document.getElementById('fOwnerName').value.trim(),phone:document.getElementById('fOwnerPhone').value.trim(),email:document.getElementById('fOwnerEmail').value.trim(),note:document.getElementById('fOwnerNote').value.trim(),giftBox};
   document.getElementById('ownerModal').style.display='none';render();pushData();saveLocalData();
 });
 
@@ -1217,6 +1241,7 @@ function renderOwnersList(filter=''){
       ${o.phone?`<div style="font-size:12px;color:#555;margin-top:3px"><a href="tel:${o.phone.replace(/\s/g,'')}" style="color:#1a73e8;text-decoration:none">📞 ${o.phone}</a></div>`:''}
       ${o.email?`<div style="font-size:12px;color:#555;margin-top:2px"><a href="mailto:${o.email}" style="color:#1a73e8;text-decoration:none">✉️ ${o.email}</a></div>`:''}
       ${o.note?`<div style="font-size:11px;color:#888;margin-top:4px">📝 ${o.note}</div>`:''}
+      ${o.giftBox?`<div style="font-size:12px;margin-top:4px">🎁 Boîte cadeau : ${o.giftBox==='oui'?'<span style="color:#22c55e;font-weight:600">✅ Oui</span>':'<span style="color:#c62828;font-weight:600">🚫 Non</span>'}</div>`:''}
       ${tariffsHtml}
     </div>`;
   }).join('');
