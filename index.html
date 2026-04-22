@@ -155,6 +155,15 @@ td.day-cell:hover{filter:brightness(.94);}
     </div>
   </div>
   <div class="settings-section">
+    <div class="settings-section-title">Couleurs des plateformes</div>
+    <div class="settings-row">
+      <div class="swatch-group"><label>Airbnb</label><input type="color" id="cPlatAirbnb" value="#FF5A5F"></div>
+      <div class="swatch-group"><label>Booking</label><input type="color" id="cPlatBooking" value="#003580"></div>
+      <div class="swatch-group"><label>Direct</label><input type="color" id="cPlatDirect" value="#22c55e"></div>
+      <div class="swatch-group"><label>Autre</label><input type="color" id="cPlatAutre" value="#888888"></div>
+    </div>
+  </div>
+  <div class="settings-section">
     <div class="settings-section-title">Couleurs des cases "Type de gestion"</div>
     <div class="settings-row">
       <div class="swatch-group"><label>🟢 Totale</label><input type="color" id="cMgmtTotale" value="#e8f5e9"></div>
@@ -196,9 +205,9 @@ td.day-cell:hover{filter:brightness(.94);}
   <div class="legend-item"><div class="legend-dot" id="ldConfirmed" style="background:#1a73e8"></div>Confirmé</div>
   <div class="legend-item"><div class="legend-dot" id="ldOption" style="background:#f59e0b"></div>Option</div>
   <div class="legend-item"><div class="legend-dot" id="ldBlocked" style="background:#9ca3af"></div>Bloqué</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#FF5A5F"></div>Airbnb</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#003580"></div>Booking</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Direct</div>
+  <div class="legend-item"><div class="legend-dot" id="ldAirbnb" style="background:#FF5A5F"></div>Airbnb</div>
+  <div class="legend-item"><div class="legend-dot" id="ldBooking" style="background:#003580"></div>Booking</div>
+  <div class="legend-item"><div class="legend-dot" id="ldDirect" style="background:#22c55e"></div>Direct</div>
   <div class="legend-item" style="margin-left:auto;font-size:10px;color:#aaa">▶ arrivée &nbsp; ◀ départ</div>
 </div>
 <div class="grid-wrap"><table id="mainTable"></table></div>
@@ -261,23 +270,9 @@ td.day-cell:hover{filter:brightness(.94);}
         <option value="autre">Autre</option>
       </select>
     </div>
-    <div class="fg"><label>Tarif et unité</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="number" id="fPropRate" placeholder="ex: 100" min="0" style="flex:1"/>
-        <select id="fPropRateUnit" style="padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;background:#fafafa">
-          <option value="nuit">€ / nuit</option>
-          <option value="semaine">€ / semaine</option>
-        </select>
-      </div>
-    </div>
-    <div class="fg"><label>Séjour minimum</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="number" id="fPropMinStay" placeholder="ex: 3" min="1" style="flex:1"/>
-        <select id="fPropMinStayUnit" style="padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;background:#fafafa">
-          <option value="nuits">nuits minimum</option>
-          <option value="semaines">semaines minimum</option>
-        </select>
-      </div>
+    <div class="fg">
+      <label>Grille tarifaire <button type="button" id="addTariffBtn" style="margin-left:8px;background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer">+ Ajouter une période</button></label>
+      <div id="tariffGrid" style="margin-top:6px;display:flex;flex-direction:column;gap:6px;"></div>
     </div>
     <div class="fg"><label>Type de gestion</label>
       <select id="fPropMgmt">
@@ -433,7 +428,8 @@ let view='week',pivot=getMonday(new Date()),editId=null;
 let colors={confirmed:'#1a73e8',option:'#f59e0b',blocked:'#9ca3af'};
 let mgmtColors={totale:'#e8f5e9',partielle:'#fff8e1',aucune:'#fce8e8',none:'#f5f5f5'};
 let cleanColors={interieur:'#f59e0b',exterieur:'#3b82f6',done:'#22c55e'};
-let properties=[],bookings=[],owners={},propRates={},propRateUnit={},propMinStay={},propMinStayUnit={},propMgmt={},propType={},checklists={},cleaningTasks=[];
+let platColors={Airbnb:'#FF5A5F',Booking:'#003580',Direct:'#22c55e',Autre:'#888888'};
+let properties=[],bookings=[],owners={},propRates={},propTariffs={},propMgmt={},propType={},checklists={},cleaningTasks=[];
 let nextCleanId=1;
 let nextId=1;
 let db=null,fbEnabled=false;
@@ -489,13 +485,15 @@ function initFirebase(url){
           propRates={};
           properties.forEach((p,i)=>{if(data.propRatesArr[i])propRates[p]=data.propRatesArr[i];});
         } else if(data.propRates){propRates=data.propRates||{};}
-        if(data.propRateUnitArr&&properties){propRateUnit={};properties.forEach((p,i)=>{if(data.propRateUnitArr[i])propRateUnit[p]=data.propRateUnitArr[i];});}
-        if(data.propMinStayArr&&properties){propMinStay={};properties.forEach((p,i)=>{if(data.propMinStayArr[i])propMinStay[p]=data.propMinStayArr[i];});}
-        if(data.propMinStayUnitArr&&properties){propMinStayUnit={};properties.forEach((p,i)=>{if(data.propMinStayUnitArr[i])propMinStayUnit[p]=data.propMinStayUnitArr[i];});}        const s=data.settings||{};
-        if(s.themeId) activeTheme=THEMES.find(t=>t.id===s.themeId)||THEMES[0];
+        if(data.propRateUnitArr&&properties){const propRateUnit={};properties.forEach((p,i)=>{if(data.propRateUnitArr[i])propRateUnit[p]=data.propRateUnitArr[i];});}
+        if(data.propMinStayArr&&properties){const propMinStay={};properties.forEach((p,i)=>{if(data.propMinStayArr[i])propMinStay[p]=data.propMinStayArr[i];});}
+        if(data.propMinStayUnitArr&&properties){const propMinStayUnit={};properties.forEach((p,i)=>{if(data.propMinStayUnitArr[i])propMinStayUnit[p]=data.propMinStayUnitArr[i];});}
+        if(data.propTariffsArr&&properties){propTariffs={};properties.forEach((p,i)=>{if(data.propTariffsArr[i])propTariffs[p]=data.propTariffsArr[i];});}
+        const s=data.settings||{};
         if(s.colors) colors=s.colors;
         if(s.mgmtColors) mgmtColors=Object.assign({},mgmtColors,s.mgmtColors);
         if(s.cleanColors) cleanColors=Object.assign({},cleanColors,s.cleanColors);
+        if(s.platColors) platColors=Object.assign({},platColors,s.platColors);
         if(s.bgOpacity) bgOpacity=s.bgOpacity;
       }
       // Autoriser pushData seulement après que Firebase a chargé
@@ -519,10 +517,8 @@ function pushData(){
   const propTypeArr=properties.map(p=>propType[p]||'');
   const propMgmtArr=properties.map(p=>propMgmt[p]||'');
   const propRatesArr=properties.map(p=>propRates[p]||0);
-  const propRateUnitArr=properties.map(p=>propRateUnit[p]||'nuit');
-  const propMinStayArr=properties.map(p=>propMinStay[p]||'');
-  const propMinStayUnitArr=properties.map(p=>propMinStayUnit[p]||'nuits');
-  db.ref('planning').set({properties,bookings,nextId,owners,propRatesArr,propMgmtArr,propTypeArr,propRateUnitArr,propMinStayArr,propMinStayUnitArr,checklists,cleaningTasks,nextCleanId,settings:{themeId:activeTheme.id,colors,mgmtColors,cleanColors,bgOpacity},updatedAt:Date.now()})
+  const propTariffsArr=properties.map(p=>propTariffs[p]||[]);
+  db.ref('planning').set({properties,bookings,nextId,owners,propRatesArr,propMgmtArr,propTypeArr,propTariffsArr,checklists,cleaningTasks,nextCleanId,settings:{themeId:activeTheme.id,colors,mgmtColors,cleanColors,platColors,bgOpacity},updatedAt:Date.now()})
     .then(()=>setSyncStatus('online','Synchronisé')).catch(e=>setSyncStatus('error',e.message));
 }
 
@@ -631,6 +627,17 @@ function applyTheme(){
   document.getElementById('cCleanInt').value=cleanColors.interieur||'#f59e0b';
   document.getElementById('cCleanExt').value=cleanColors.exterieur||'#3b82f6';
   document.getElementById('cCleanDone').value=cleanColors.done||'#22c55e';
+  document.getElementById('cPlatAirbnb').value=platColors.Airbnb||'#FF5A5F';
+  document.getElementById('cPlatBooking').value=platColors.Booking||'#003580';
+  document.getElementById('cPlatDirect').value=platColors.Direct||'#22c55e';
+  document.getElementById('cPlatAutre').value=platColors.Autre||'#888888';
+  // Mettre à jour la légende
+  const ldAirbnb=document.getElementById('ldAirbnb');
+  const ldBooking=document.getElementById('ldBooking');
+  const ldDirect=document.getElementById('ldDirect');
+  if(ldAirbnb)ldAirbnb.style.background=platColors.Airbnb||'#FF5A5F';
+  if(ldBooking)ldBooking.style.background=platColors.Booking||'#003580';
+  if(ldDirect)ldDirect.style.background=platColors.Direct||'#22c55e';
 }
 
 function buildThemeChips(){
@@ -910,17 +917,74 @@ document.getElementById('checklistCloseBtn').addEventListener('click',()=>docume
 // ─── PROPERTY CRUD ───────────────────────────────────────────────────────────
 let editingProp=null;
 
+// ─── TARIFF GRID ─────────────────────────────────────────────────────────────
+let currentTariffs=[];
+
+function renderTariffGrid(){
+  const grid=document.getElementById('tariffGrid');
+  if(currentTariffs.length===0){
+    grid.innerHTML='<div style="font-size:11px;color:#aaa;padding:4px 0">Aucune période tarifaire — cliquez "+ Ajouter une période"</div>';
+    return;
+  }
+  grid.innerHTML=currentTariffs.map((t,i)=>`
+    <div style="background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+      <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:120px">
+        <label style="font-size:10px;color:#888">Du</label>
+        <input type="date" value="${t.from||''}" data-i="${i}" data-f="from" style="padding:4px 6px;border:1px solid #e0e0e0;border-radius:6px;font-size:11px;">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:120px">
+        <label style="font-size:10px;color:#888">Au</label>
+        <input type="date" value="${t.to||''}" data-i="${i}" data-f="to" style="padding:4px 6px;border:1px solid #e0e0e0;border-radius:6px;font-size:11px;">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;width:80px">
+        <label style="font-size:10px;color:#888">Tarif €</label>
+        <input type="number" value="${t.rate||''}" data-i="${i}" data-f="rate" placeholder="ex: 90" min="0" style="padding:4px 6px;border:1px solid #e0e0e0;border-radius:6px;font-size:11px;">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;width:90px">
+        <label style="font-size:10px;color:#888">Unité</label>
+        <select data-i="${i}" data-f="unit" style="padding:4px 6px;border:1px solid #e0e0e0;border-radius:6px;font-size:11px;">
+          <option value="nuit" ${t.unit==='nuit'?'selected':''}>/ nuit</option>
+          <option value="semaine" ${t.unit==='semaine'?'selected':''}>/ semaine</option>
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;width:60px">
+        <label style="font-size:10px;color:#888">Min.</label>
+        <input type="number" value="${t.minStay||''}" data-i="${i}" data-f="minStay" placeholder="ex: 3" min="1" style="padding:4px 6px;border:1px solid #e0e0e0;border-radius:6px;font-size:11px;">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;width:80px">
+        <label style="font-size:10px;color:#888"> </label>
+        <select data-i="${i}" data-f="minUnit" style="padding:4px 6px;border:1px solid #e0e0e0;border-radius:6px;font-size:11px;">
+          <option value="nuits" ${t.minUnit==='nuits'||!t.minUnit?'selected':''}>nuits</option>
+          <option value="semaines" ${t.minUnit==='semaines'?'selected':''}>semaines</option>
+        </select>
+      </div>
+      <button type="button" data-del="${i}" style="background:#fee2e2;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;color:#c62828;align-self:flex-end">✕</button>
+    </div>`).join('');
+  grid.querySelectorAll('input,select').forEach(el=>{
+    el.addEventListener('change',()=>{
+      const i=parseInt(el.dataset.i),f=el.dataset.f;
+      currentTariffs[i][f]=el.type==='number'?(parseFloat(el.value)||''):el.value;
+    });
+  });
+  grid.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.addEventListener('click',()=>{currentTariffs.splice(parseInt(btn.dataset.del),1);renderTariffGrid();});
+  });
+}
+
+document.getElementById('addTariffBtn').addEventListener('click',()=>{
+  currentTariffs.push({from:'',to:'',rate:'',unit:'nuit',minStay:'',minUnit:'nuits'});
+  renderTariffGrid();
+});
+
 function openPropModal(prop=null){
   editingProp=prop;
+  currentTariffs=prop&&propTariffs[prop]?JSON.parse(JSON.stringify(propTariffs[prop])):[];
   document.getElementById('propModalTitle').textContent=prop?'Modifier le bien':'Ajouter un bien';
   document.getElementById('fPropName').value=prop||'';
   document.getElementById('fPropType').value=prop&&propType[prop]?propType[prop]:'';
-  document.getElementById('fPropRate').value=prop&&propRates[prop]?propRates[prop]:'';
-  document.getElementById('fPropRateUnit').value=prop&&propRateUnit[prop]?propRateUnit[prop]:'nuit';
-  document.getElementById('fPropMinStay').value=prop&&propMinStay[prop]?propMinStay[prop]:'';
-  document.getElementById('fPropMinStayUnit').value=prop&&propMinStayUnit[prop]?propMinStayUnit[prop]:'nuits';
   document.getElementById('fPropMgmt').value=prop&&propMgmt[prop]?propMgmt[prop]:'';
   document.getElementById('pDelBtn').style.display=prop?'block':'none';
+  renderTariffGrid();
   document.getElementById('propModal').style.display='flex';
   setTimeout(()=>document.getElementById('fPropName').focus(),100);
 }
@@ -929,7 +993,7 @@ function delProp(prop){
   if(!confirm(`Supprimer "${prop}" et toutes ses réservations ?`))return;
   properties=properties.filter(p=>p!==prop);
   bookings=bookings.filter(b=>b.property!==prop);
-  delete owners[prop];delete propRates[prop];delete propRateUnit[prop];delete propMinStay[prop];delete propMinStayUnit[prop];delete propMgmt[prop];delete propType[prop];
+  delete owners[prop];delete propRates[prop];delete propTariffs[prop];delete propMgmt[prop];delete propType[prop];
   render();pushData();saveLocalData();
 }
 
@@ -945,13 +1009,15 @@ document.getElementById('pCancelBtn').addEventListener('click',()=>{document.get
 
 document.getElementById('pSaveBtn').addEventListener('click',()=>{
   const newName=document.getElementById('fPropName').value.trim();
-  const rate=parseFloat(document.getElementById('fPropRate').value)||0;
-  const rateUnit=document.getElementById('fPropRateUnit').value;
-  const minStay=parseInt(document.getElementById('fPropMinStay').value)||0;
-  const minStayUnit=document.getElementById('fPropMinStayUnit').value;
   const mgmt=document.getElementById('fPropMgmt').value;
   const typ=document.getElementById('fPropType').value;
   if(!newName)return;
+  // Lire les valeurs finales de la grille
+  document.getElementById('tariffGrid').querySelectorAll('input,select').forEach(el=>{
+    const i=parseInt(el.dataset.i),f=el.dataset.f;
+    if(!isNaN(i)&&f)currentTariffs[i][f]=el.type==='number'?(parseFloat(el.value)||''):el.value;
+  });
+  const validTariffs=currentTariffs.filter(t=>t.rate&&t.from&&t.to);
   if(editingProp){
     if(newName!==editingProp){
       if(properties.includes(newName)&&newName!==editingProp){alert('Un bien avec ce nom existe déjà.');return;}
@@ -959,29 +1025,19 @@ document.getElementById('pSaveBtn').addEventListener('click',()=>{
       if(idx!==-1)properties[idx]=newName;
       bookings.forEach(b=>{if(b&&b.property===editingProp)b.property=newName;});
       if(owners[editingProp]){owners[newName]=owners[editingProp];delete owners[editingProp];}
-      if(propRates[editingProp]){propRates[newName]=propRates[editingProp];delete propRates[editingProp];}
-      if(propRateUnit[editingProp]){propRateUnit[newName]=propRateUnit[editingProp];delete propRateUnit[editingProp];}
-      if(propMinStay[editingProp]){propMinStay[newName]=propMinStay[editingProp];delete propMinStay[editingProp];}
-      if(propMinStayUnit[editingProp]){propMinStayUnit[newName]=propMinStayUnit[editingProp];delete propMinStayUnit[editingProp];}
       if(propMgmt[editingProp]){propMgmt[newName]=propMgmt[editingProp];delete propMgmt[editingProp];}
       if(propType[editingProp]){propType[newName]=propType[editingProp];delete propType[editingProp];}
+      if(propTariffs[editingProp]){propTariffs[newName]=propTariffs[editingProp];delete propTariffs[editingProp];}
     }
-    if(rate)propRates[newName]=rate; else delete propRates[newName];
-    propRateUnit[newName]=rateUnit;
-    if(minStay)propMinStay[newName]=minStay; else delete propMinStay[newName];
-    propMinStayUnit[newName]=minStayUnit;
+    propTariffs[newName]=validTariffs;
     if(mgmt)propMgmt[newName]=mgmt; else delete propMgmt[newName];
     if(typ)propType[newName]=typ; else delete propType[newName];
   } else {
     if(!properties.includes(newName))properties.push(newName);
-    if(rate)propRates[newName]=rate; else delete propRates[newName];
-    propRateUnit[newName]=rateUnit;
-    if(minStay)propMinStay[newName]=minStay; else delete propMinStay[newName];
-    propMinStayUnit[newName]=minStayUnit;
+    propTariffs[newName]=validTariffs;
     if(mgmt)propMgmt[newName]=mgmt; else delete propMgmt[newName];
     if(typ)propType[newName]=typ; else delete propType[newName];
   }
-  // Tri automatique par préfixe (AP, MH, etc.) puis alphabétique
   properties.sort((a,b)=>{
     const prefA=a.match(/^[A-Z]+/i)?a.match(/^[A-Z]+/i)[0].toUpperCase():'';
     const prefB=b.match(/^[A-Z]+/i)?b.match(/^[A-Z]+/i)[0].toUpperCase():'';
@@ -1005,11 +1061,11 @@ function openOwnerView(prop){
   setRow('ownerViewPhone',!!o.phone,'ownerPhoneLink','tel:'+(o.phone||'').replace(/\s/g,''),o.phone);
   setRow('ownerViewEmail',!!o.email,'ownerEmailLink','mailto:'+o.email,o.email);
   if(o.note){document.getElementById('ownerViewNote').style.display='flex';document.getElementById('ownerNoteText').textContent=o.note;}else document.getElementById('ownerViewNote').style.display='none';
-  const rate=propRates[prop];
-  const rUnit=propRateUnit[prop]||'nuit';
-  const minS=propMinStay[prop];
-  const minSUnit=propMinStayUnit[prop]||'nuits';
-  if(rate){document.getElementById('ownerViewRate').style.display='flex';document.getElementById('ownerRateText').textContent=rate+'€ / '+rUnit+(minS?' · min '+minS+' '+minSUnit:'');}else document.getElementById('ownerViewRate').style.display='none';
+  const tariffs=propTariffs[prop]||[];
+  if(tariffs.length>0){
+    document.getElementById('ownerViewRate').style.display='flex';
+    document.getElementById('ownerRateText').innerHTML=tariffs.map(t=>`<div style="font-size:11px">${t.from} → ${t.to} : <strong>${t.rate}€/${t.unit}</strong>${t.minStay?' · min '+t.minStay+' '+t.minUnit:''}</div>`).join('');
+  } else {document.getElementById('ownerViewRate').style.display='none';}
   document.getElementById('ownerViewModal').style.display='flex';
 }
 
@@ -1141,26 +1197,27 @@ function renderOwnersList(filter=''){
   if(list.length===0){content.innerHTML='<p style="color:#888;text-align:center;padding:20px">Aucun résultat</p>';return;}
   content.innerHTML=list.map(p=>{
     const o=owners[p]||{};
-    const rate=propRates[p];
-    const rUnit=propRateUnit[p]||'nuit';
-    const minS=propMinStay[p];
-    const minSUnit=propMinStayUnit[p]||'nuits';
+    const tariffs=propTariffs[p]||[];
     const typ=propType[p]?`<span class="type-badge">${TYPE_LABELS[propType[p]]||propType[p]}</span>`:'';
     const mgmt=propMgmt[p]||'';
     const mgmtCol=mgmt==='totale'?'#2e7d32':mgmt==='partielle'?'#f57f17':mgmt==='aucune'?'#c62828':'#999';
     const mgmtLabel=mgmt==='totale'?'Totale':mgmt==='partielle'?'Partielle':mgmt==='aucune'?'Sans gest.':'';
+    const tariffsHtml=tariffs.length>0?`<div style="margin-top:6px;font-size:11px;color:#555;background:#f0f4ff;border-radius:6px;padding:6px 8px">
+      <div style="font-weight:600;margin-bottom:3px;color:#1a73e8">📋 Grille tarifaire</div>
+      ${tariffs.map(t=>`<div>${t.from} → ${t.to} : <strong>${t.rate}€/${t.unit}</strong>${t.minStay?' · min '+t.minStay+' '+t.minUnit:''}</div>`).join('')}
+    </div>`:'';
     return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:12px;margin-bottom:8px;background:#fafafa;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <div>
           <strong style="font-size:13px">${p}</strong> ${typ}
           ${mgmtLabel?`<span style="font-size:10px;color:${mgmtCol};font-weight:600;margin-left:4px">${mgmtLabel}</span>`:''}
         </div>
-        ${rate?`<span style="font-size:12px;font-weight:600;color:#1a73e8">${rate}€/${rUnit}${minS?' · min '+minS+' '+minSUnit:''}</span>`:''}
       </div>
       ${o.name?`<div style="font-size:12px;color:#333;font-weight:600">👤 ${o.name}</div>`:'<div style="font-size:12px;color:#aaa">Propriétaire non renseigné</div>'}
       ${o.phone?`<div style="font-size:12px;color:#555;margin-top:3px"><a href="tel:${o.phone.replace(/\s/g,'')}" style="color:#1a73e8;text-decoration:none">📞 ${o.phone}</a></div>`:''}
       ${o.email?`<div style="font-size:12px;color:#555;margin-top:2px"><a href="mailto:${o.email}" style="color:#1a73e8;text-decoration:none">✉️ ${o.email}</a></div>`:''}
       ${o.note?`<div style="font-size:11px;color:#888;margin-top:4px">📝 ${o.note}</div>`:''}
+      ${tariffsHtml}
     </div>`;
   }).join('');
 }
@@ -1188,6 +1245,10 @@ document.getElementById('settingsBtn').addEventListener('click',()=>document.get
 document.getElementById('cCleanInt').addEventListener('input',function(){cleanColors.interieur=this.value;render();pushData();});
 document.getElementById('cCleanExt').addEventListener('input',function(){cleanColors.exterieur=this.value;render();pushData();});
 document.getElementById('cCleanDone').addEventListener('input',function(){cleanColors.done=this.value;render();pushData();});
+document.getElementById('cPlatAirbnb').addEventListener('input',function(){platColors.Airbnb=this.value;render();applyTheme();pushData();});
+document.getElementById('cPlatBooking').addEventListener('input',function(){platColors.Booking=this.value;render();applyTheme();pushData();});
+document.getElementById('cPlatDirect').addEventListener('input',function(){platColors.Direct=this.value;render();applyTheme();pushData();});
+document.getElementById('cPlatAutre').addEventListener('input',function(){platColors.Autre=this.value;render();applyTheme();pushData();});
 document.getElementById('bgUpload').addEventListener('change',function(){const file=this.files[0];if(!file)return;const r=new FileReader();r.onload=e=>{customBg=e.target.result;applyTheme();};r.readAsDataURL(file);});
 document.getElementById('bgClear').addEventListener('click',()=>{customBg=null;document.getElementById('bgUpload').value='';applyTheme();});
 document.getElementById('bgOpacity').addEventListener('input',function(){bgOpacity=parseInt(this.value);document.getElementById('bgOpacityVal').textContent=bgOpacity+'%';if(customBg)applyTheme();pushData();});
