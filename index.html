@@ -128,6 +128,7 @@ td.day-cell:hover{filter:brightness(.94);}
   <div class="view-switch">
     <button class="view-btn active" id="vWeek">Semaine</button>
     <button class="view-btn" id="vMonth">Mois</button>
+    <button class="view-btn" id="vTimeline" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-weight:700;">⏱ Timeline</button>
   </div>
   <button class="nav-btn" id="todayBtn" style="font-size:11px;padding:4px 8px;">Aujourd'hui</button>
   <button class="nav-btn" id="prevBtn">&#8592;</button>
@@ -135,7 +136,7 @@ td.day-cell:hover{filter:brightness(.94);}
   <button class="nav-btn" id="nextBtn">&#8594;</button>
   <button class="icon-btn edit-only" id="addPropBtn">+ Bien</button>
   <button class="icon-btn edit-only" id="addBookBtn">+ Réservation</button>
-  <button class="icon-btn edit-only" id="addCleanBtn">🧹 Ménage à venir</button>
+  <button class="icon-btn edit-only" id="addCleanBtn">🧹 Ménage à venir<span id="cleanBadge" style="display:none;background:#ef4444;color:#fff;border-radius:50%;font-size:9px;font-weight:700;padding:1px 5px;margin-left:4px;vertical-align:middle"></span></button>
   <button class="icon-btn" id="ownersListBtn">👥 Propriétaires</button>
   <button class="icon-btn" id="settingsBtn">⚙ Apparence</button>
   <button class="icon-btn edit-only" id="shareBtn">🔗 Partager</button>
@@ -201,7 +202,9 @@ td.day-cell:hover{filter:brightness(.94);}
   <input type="text" id="searchInput" placeholder="🔍 Bien ou propriétaire..." style="padding:5px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px;min-width:180px;background:#fafafa;color:#1a1a1a;font-family:inherit;">
 </div>
 <div class="stats-bar" id="statsBar"></div>
-<div class="legend">
+<div id="todayBanner" style="display:none;background:linear-gradient(135deg,#e8f5e9,#e3f2fd);border:1px solid #c8e6c9;border-radius:10px;padding:10px 16px;margin-bottom:.75rem;display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:13px;font-weight:500;"></div>
+<div id="timelineView" style="display:none;"></div>
+<div class="legend" id="legend">
   <div class="legend-item"><div class="legend-dot" id="ldConfirmed" style="background:#1a73e8"></div>Confirmé</div>
   <div class="legend-item"><div class="legend-dot" id="ldOption" style="background:#f59e0b"></div>Option</div>
   <div class="legend-item"><div class="legend-dot" id="ldBlocked" style="background:#9ca3af"></div>Bloqué</div>
@@ -507,6 +510,7 @@ function initFirebase(url){
         if(data.propMinStayUnitArr&&properties){const propMinStayUnit={};properties.forEach((p,i)=>{if(data.propMinStayUnitArr[i])propMinStayUnit[p]=data.propMinStayUnitArr[i];});}
         if(data.propTariffsArr&&properties){propTariffs={};properties.forEach((p,i)=>{if(data.propTariffsArr[i])propTariffs[p]=data.propTariffsArr[i];});}
         const s=data.settings||{};
+        if(s.themeId) activeTheme=THEMES.find(t=>t.id===s.themeId)||THEMES[0];
         if(s.colors) colors=s.colors;
         if(s.mgmtColors) mgmtColors=Object.assign({},mgmtColors,s.mgmtColors);
         if(s.cleanColors) cleanColors=Object.assign({},cleanColors,s.cleanColors);
@@ -688,6 +692,9 @@ function navigate(dir){
 function render(){
   document.getElementById('periodLabel').textContent=getPeriodLabel();
   updateFilterSelect();computeStats();
+  updateTodayBanner();
+  updateCleanBadge();
+  if(view==='timeline'){renderTimeline();return;}
   const days=getDays();
   const visibleProps=getVisibleProps();
   const filteredBks=getFilteredBookings();
@@ -769,11 +776,12 @@ function render(){
           <div class="seg-inner">${isArr?'▶ ':''}${label}${plat}${hasNote?' 📝':''}${isDep?' ◀':''}<span class="night-badge">${nights}n</span></div>
         </div>`;
       });
-      cleanHere.forEach(c=>{
+      cleanHere.forEach((c,ci)=>{
         const done=c.status==='done';
         const col=done?cleanColors.done:(c.type==='exterieur'?cleanColors.exterieur:cleanColors.interieur);
         const label=done?'✓':(c.type==='exterieur'?'Ext.':'Int.');
-        inner+=`<div class="clean-seg" data-cleanid="${c.id}" style="position:absolute;bottom:2px;left:2px;right:2px;height:13px;background:${col};border-radius:3px;display:flex;align-items:center;justify-content:center;gap:2px;font-size:8px;font-weight:700;color:#fff;cursor:pointer;z-index:3;" title="${done?'Ménage effectué':'Ménage à faire - '+(c.type==='exterieur'?'Extérieur':'Intérieur')}">🧹 ${label}</div>`;
+        const bottomOffset=2+(ci*16);
+        inner+=`<div class="clean-seg" data-cleanid="${c.id}" style="position:absolute;bottom:${bottomOffset}px;left:2px;right:2px;height:13px;background:${col};border-radius:3px;display:flex;align-items:center;justify-content:center;gap:2px;font-size:8px;font-weight:700;color:#fff;cursor:pointer;z-index:${3+ci};" title="${done?'Ménage effectué':'Ménage à faire - '+(c.type==='exterieur'?'Extérieur':'Intérieur')}">🧹 ${label}</div>`;
       });
       if(here.length===0&&cleanHere.length===0)inner=`<div style="width:100%;height:100%" data-add="${prop}|${ds(d)}"></div>`;
       html+=`<td class="day-cell${tod}" data-prop="${prop}" data-date="${ds(d)}">${inner}</td>`;
@@ -792,6 +800,10 @@ function render(){
   table.querySelectorAll('.pname').forEach(el=>el.addEventListener('click',e=>{if(isReadOnly)return;e.stopPropagation();openPropModal(el.title);}));
   table.querySelectorAll('.day-cell').forEach(el=>el.addEventListener('click',()=>{if(isReadOnly)return;openNew(el.dataset.prop,el.dataset.date);}));
   table.querySelectorAll('.prop-td').forEach(el=>{const name=el.querySelector('.pname');if(name)addLongPress(el,name.title);});
+  document.getElementById('grid-wrap')||document.querySelector('.grid-wrap');
+  document.querySelector('.grid-wrap').style.display='';
+  document.getElementById('timelineView').style.display='none';
+  document.getElementById('legend').style.display='';
   applyTheme();
 }
 
@@ -1257,13 +1269,97 @@ document.getElementById('ownersSearch').addEventListener('input',function(){rend
 document.getElementById('prevBtn').addEventListener('click',()=>navigate(-1));
 document.getElementById('nextBtn').addEventListener('click',()=>navigate(1));
 document.getElementById('addBookBtn').addEventListener('click',()=>openNew('',''));
+// ─── TODAY BANNER ────────────────────────────────────────────────────────────
+function updateTodayBanner(){
+  const banner=document.getElementById('todayBanner');
+  const today=ds(new Date());
+  const arrivals=bookings.filter(b=>b&&b.status!=='blocked'&&b.start===today);
+  const departures=bookings.filter(b=>b&&b.status!=='blocked'&&b.end===today);
+  const cleanToday=cleaningTasks.filter(c=>c&&c.date===today);
+  if(arrivals.length===0&&departures.length===0&&cleanToday.length===0){banner.style.display='none';return;}
+  banner.style.display='flex';
+  let html='<span style="font-size:14px;font-weight:700;color:#1a1a1a">📅 Aujourd\'hui :</span>';
+  if(arrivals.length>0)html+=`<span>✈️ <strong>${arrivals.length}</strong> arrivée${arrivals.length>1?'s':''}</span>`;
+  if(departures.length>0)html+=`<span>🏠 <strong>${departures.length}</strong> départ${departures.length>1?'s':''}</span>`;
+  if(cleanToday.length>0)html+=`<span>🧹 <strong>${cleanToday.length}</strong> ménage${cleanToday.length>1?'s':''} prévu${cleanToday.length>1?'s':''}</span>`;
+  if(arrivals.length>0)html+=`<span style="font-size:11px;color:#555">${arrivals.map(b=>b.property).join(', ')}</span>`;
+  banner.innerHTML=html;
+}
+
+// ─── CLEAN BADGE ─────────────────────────────────────────────────────────────
+function updateCleanBadge(){
+  const badge=document.getElementById('cleanBadge');
+  const today=ds(new Date());
+  const tomorrow=ds(addDays(new Date(),1));
+  const urgent=cleaningTasks.filter(c=>c&&c.status!=='done'&&(c.date===today||c.date===tomorrow));
+  if(urgent.length>0){badge.style.display='inline-block';badge.textContent=urgent.length;}
+  else{badge.style.display='none';}
+}
+
+// ─── TIMELINE VIEW ───────────────────────────────────────────────────────────
+function renderTimeline(){
+  document.querySelector('.grid-wrap').style.display='none';
+  document.getElementById('legend').style.display='none';
+  const container=document.getElementById('timelineView');
+  container.style.display='block';
+  const now=new Date();
+  const start=new Date(now.getFullYear(),now.getMonth(),1);
+  const end=new Date(now.getFullYear(),now.getMonth()+2,0);
+  const totalDays=Math.round((end-start)/86400000)+1;
+  const visibleProps=getVisibleProps();
+  let html=`<div style="overflow-x:auto;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);">
+  <div style="min-width:${100+totalDays*28}px">
+  <div style="display:flex;border-bottom:2px solid #e0e0e0;background:var(--header,#f5f5f3);position:sticky;top:0;z-index:4;">
+    <div style="width:120px;min-width:120px;padding:8px 6px;font-size:11px;font-weight:700;position:sticky;left:0;background:inherit;z-index:5;">Biens</div>`;
+  for(let i=0;i<totalDays;i++){
+    const d=addDays(start,i);
+    const isT=ds(d)===ds(now);
+    html+=`<div style="width:28px;min-width:28px;text-align:center;padding:4px 0;font-size:9px;font-weight:${isT?'700':'500'};color:${isT?'#1a73e8':'#666'};background:${isT?'#dbeeff':'inherit'}">${d.getDate()}<br><span style="font-size:8px;opacity:.7">${JOURS[(d.getDay()+6)%7].slice(0,1)}</span></div>`;
+  }
+  html+='</div>';
+  visibleProps.forEach(prop=>{
+    const propBks=bookings.filter(b=>b&&b.property===prop&&b.end>=ds(start)&&b.start<=ds(end));
+    const propCleans=cleaningTasks.filter(c=>c&&c.property===prop&&c.date>=ds(start)&&c.date<=ds(end));
+    html+=`<div style="display:flex;border-bottom:1px solid #f0f0f0;min-height:44px;position:relative;align-items:center;">
+      <div style="width:120px;min-width:120px;padding:4px 6px;font-size:10px;font-weight:500;position:sticky;left:0;background:#fff;z-index:2;border-right:2px solid #bbb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${prop}</div>
+      <div style="flex:1;position:relative;height:44px;">`;
+    propBks.forEach(b=>{
+      const bStart=b.start<ds(start)?start:new Date(b.start+'T00:00:00');
+      const bEnd=b.end>ds(end)?end:new Date(b.end+'T00:00:00');
+      const leftDays=Math.round((bStart-start)/86400000);
+      const widthDays=Math.round((bEnd-bStart)/86400000);
+      if(widthDays<=0)return;
+      const col=b.status==='blocked'?colors.blocked:(b.status==='option'?colors.option:(b.platform&&platColors[b.platform]?platColors[b.platform]:colors.confirmed));
+      const tc=textColor(col);
+      html+=`<div data-id="${b.id}" style="position:absolute;left:${leftDays*28}px;width:${widthDays*28-2}px;top:6px;height:22px;background:${col};color:${tc};border-radius:4px;font-size:9px;font-weight:600;display:flex;align-items:center;padding:0 4px;cursor:pointer;overflow:hidden;white-space:nowrap;z-index:2;">${b.name||''}</div>`;
+    });
+    propCleans.forEach(c=>{
+      const cLeft=Math.round((new Date(c.date+'T00:00:00')-start)/86400000);
+      const col=c.status==='done'?cleanColors.done:(c.type==='exterieur'?cleanColors.exterieur:cleanColors.interieur);
+      html+=`<div data-cleanid="${c.id}" style="position:absolute;left:${cLeft*28+2}px;width:22px;bottom:4px;height:12px;background:${col};border-radius:3px;font-size:8px;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3;">🧹</div>`;
+    });
+    html+='</div></div>';
+  });
+  html+='</div></div>';
+  container.innerHTML=html;
+  container.querySelectorAll('[data-id]').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();openEdit(parseInt(el.dataset.id));}));
+  container.querySelectorAll('[data-cleanid]').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();openCleaningEdit(parseInt(el.dataset.cleanid));}));
+}
+
 document.getElementById('todayBtn').addEventListener('click',()=>{
   if(view==='week')pivot=getMonday(new Date());
   else pivot=new Date(new Date().getFullYear(),new Date().getMonth(),1);
   render();
 });
-document.getElementById('vWeek').addEventListener('click',()=>{view='week';pivot=getMonday(new Date());document.getElementById('vWeek').classList.add('active');document.getElementById('vMonth').classList.remove('active');render();});
-document.getElementById('vMonth').addEventListener('click',()=>{view='month';pivot=new Date(new Date().getFullYear(),new Date().getMonth(),1);document.getElementById('vMonth').classList.add('active');document.getElementById('vWeek').classList.remove('active');render();});
+document.getElementById('vTimeline').addEventListener('click',()=>{
+  view='timeline';
+  document.getElementById('vWeek').classList.remove('active');
+  document.getElementById('vMonth').classList.remove('active');
+  document.getElementById('vTimeline').classList.add('active');
+  render();
+});
+document.getElementById('vWeek').addEventListener('click',()=>{view='week';pivot=getMonday(new Date());document.getElementById('vWeek').classList.add('active');document.getElementById('vMonth').classList.remove('active');document.getElementById('vTimeline').classList.remove('active');render();});
+document.getElementById('vMonth').addEventListener('click',()=>{view='month';pivot=new Date(new Date().getFullYear(),new Date().getMonth(),1);document.getElementById('vMonth').classList.add('active');document.getElementById('vWeek').classList.remove('active');document.getElementById('vTimeline').classList.remove('active');render();});
 document.getElementById('settingsBtn').addEventListener('click',()=>document.getElementById('settingsPanel').classList.toggle('open'));
 ['Confirmed','Option','Blocked'].forEach(k=>{document.getElementById('c'+k).addEventListener('input',function(){colors[k.toLowerCase()]=this.value;render();pushData();});});
 ['Totale','Partielle','Aucune','None'].forEach(k=>{document.getElementById('cMgmt'+k).addEventListener('input',function(){mgmtColors[k.toLowerCase()]=this.value;applyTheme();pushData();});});
