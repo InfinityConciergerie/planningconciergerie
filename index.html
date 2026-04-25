@@ -540,7 +540,18 @@ function pushData(){
   const propMgmtArr=properties.map(p=>propMgmt[p]||'');
   const propRatesArr=properties.map(p=>propRates[p]||0);
   const propTariffsArr=properties.map(p=>propTariffs[p]||[]);
-  const ownersArr=properties.map(p=>owners[p]||null);
+  const ownersArr=properties.map(p=>{
+    const o=owners[p];
+    if(!o)return null;
+    // Nettoyer les champs vides pour éviter les erreurs Firebase
+    const clean={};
+    if(o.name)clean.name=o.name;
+    if(o.phone)clean.phone=o.phone;
+    if(o.email)clean.email=o.email;
+    if(o.note)clean.note=o.note;
+    if(o.giftBox)clean.giftBox=o.giftBox;
+    return Object.keys(clean).length>0?clean:null;
+  });
   db.ref('planning').set({properties,bookings,nextId,ownersArr,propRatesArr,propMgmtArr,propTypeArr,propTariffsArr,checklists,cleaningTasks,nextCleanId,settings:{themeId:activeTheme.id,colors,mgmtColors,cleanColors,platColors,bgOpacity},updatedAt:Date.now()})
     .then(()=>setSyncStatus('online','Synchronisé')).catch(e=>setSyncStatus('error',e.message));
 }
