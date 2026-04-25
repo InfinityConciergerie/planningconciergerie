@@ -1303,13 +1303,17 @@ function getAutoRevenues(month){
   const [y,m]=month.split('-').map(Number);
   const mStart=`${y}-${String(m).padStart(2,'0')}-01`;
   const mEnd=`${y}-${String(m).padStart(2,'0')}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`;
-  // Map des overrides par id
+  // Map des overrides et masquages
   const overrides={};
-  services.filter(s=>s&&s.overrideId).forEach(s=>overrides[s.overrideId]=s.amount);
+  const hidden=new Set();
+  services.filter(Boolean).forEach(s=>{
+    if(s.overrideId)overrides[s.overrideId]=s.amount;
+    if(s.hideId)hidden.add(s.hideId);
+  });
 
   bookings.filter(b=>b&&b.status==='confirmed'&&b.start>=mStart&&b.start<=mEnd).forEach(b=>{
     const rid=`auto_accueil_${b.id}`;
-    revenues.push({id:rid,auto:true,property:b.property,type:'accueil',date:b.start,amount:overrides[rid]!==undefined?overrides[rid]:INFINITY_RATES.accueil,note:`Accueil & état des lieux (${b.name||''})`});
+    if(!hidden.has(rid))revenues.push({id:rid,auto:true,property:b.property,type:'accueil',date:b.start,amount:overrides[rid]!==undefined?overrides[rid]:INFINITY_RATES.accueil,note:`Accueil & état des lieux (${b.name||''})`});
     // % gestion selon plateforme et type de gestion
     const o=owners[b.property]||{};
     const pct=o.mgmtPct||0;
@@ -1321,12 +1325,12 @@ function getAutoRevenues(month){
       const nights=nightsBetween(b.start,b.end);
       const total=b.rate*nights;
       const rid2=`auto_pct_${b.id}`;
-      revenues.push({id:rid2,auto:true,property:b.property,type:'gestion_pct',date:b.start,amount:overrides[rid2]!==undefined?overrides[rid2]:Math.round(total*pct/100),note:`${pct}% sur ${total}€ (${b.name||''}) — ${b.platform||'Direct'}`});
+      if(!hidden.has(rid2))revenues.push({id:rid2,auto:true,property:b.property,type:'gestion_pct',date:b.start,amount:overrides[rid2]!==undefined?overrides[rid2]:Math.round(total*pct/100),note:`${pct}% sur ${total}€ (${b.name||''}) — ${b.platform||'Direct'}`});
     }
     // Boîte cadeau 7,90€ si propriétaire a validé
     if(o.giftBox==='oui'){
       const rid3=`auto_gift_${b.id}`;
-      revenues.push({id:rid3,auto:true,property:b.property,type:'boite_cadeau',date:b.start,amount:overrides[rid3]!==undefined?overrides[rid3]:7.90,note:`Boîte cadeau (${b.name||''})`});
+      if(!hidden.has(rid3))revenues.push({id:rid3,auto:true,property:b.property,type:'boite_cadeau',date:b.start,amount:overrides[rid3]!==undefined?overrides[rid3]:7.90,note:`Boîte cadeau (${b.name||''})`});
     }
   });
 
@@ -1338,7 +1342,7 @@ function getAutoRevenues(month){
     const o=owners[c.property]||{};
     const rate=o.cleanRate||INFINITY_RATES.menage_ponctuel;
     const rid4=`auto_clean_${c.id}`;
-    revenues.push({id:rid4,auto:true,property:c.property,type:'menage_ponctuel',date:c.date,amount:overrides[rid4]!==undefined?overrides[rid4]:rate,note:`Ménage intérieur`});
+    if(!hidden.has(rid4))revenues.push({id:rid4,auto:true,property:c.property,type:'menage_ponctuel',date:c.date,amount:overrides[rid4]!==undefined?overrides[rid4]:rate,note:`Ménage intérieur`});
   });
 
   return revenues;
@@ -1375,12 +1379,15 @@ function renderRevenueDashboard(){
   const byProp={};
   allRevs.forEach(r=>{byProp[r.property]=(byProp[r.property]||0)+(r.amount||0);});
 
+  // Calcul du total % gestion
+  const totalPct=allRevs.filter(r=>r.type==='gestion_pct').reduce((s,r)=>s+(r.amount||0),0);
+
   // Résumé
   document.getElementById('revenueSummary').innerHTML=`
     <div style="flex:1;text-align:center"><div style="font-size:22px;font-weight:700;color:#1a73e8">${total}€</div><div style="font-size:11px;color:#666">Total du mois</div></div>
     <div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:600;color:#22c55e">${autoRevs.reduce((s,r)=>s+r.amount,0)}€</div><div style="font-size:11px;color:#666">Automatique</div></div>
     <div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:600;color:#f59e0b">${manualRevs.reduce((s,r)=>s+(r.amount||0),0)}€</div><div style="font-size:11px;color:#666">Manuel</div></div>
-    <div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:600;color:#7c3aed">${allRevs.length}</div><div style="font-size:11px;color:#666">Prestations</div></div>`;
+    <div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:600;color:#7c3aed">${totalPct}€</div><div style="font-size:11px;color:#666">dont % gestion</div></div>`;
 
   // Liste par bien
   const list=document.getElementById('revenueList');
@@ -1395,7 +1402,10 @@ function renderRevenueDashboard(){
         <span style="font-size:13px;font-weight:700;color:#1a73e8">${propTotal}€</span>
       </div>
       ${propRevs.map(r=>`<div style="padding:7px 12px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;font-size:12px">
-        <div style="flex:1"><span style="color:#888;margin-right:6px">${r.date}</span>${SERVICE_LABELS[r.type]||r.type}${r.note?` <span style="color:#aaa;font-size:11px">— ${r.note}</span>`:''}${r.auto?'<span style="font-size:9px;color:#aaa;margin-left:4px">auto</span>':` <button data-del="${r.id}" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:11px;margin-left:4px">✕</button>`}</div>
+        <div style="flex:1"><span style="color:#888;margin-right:6px">${r.date}</span>${SERVICE_LABELS[r.type]||r.type}${r.note?` <span style="color:#aaa;font-size:11px">— ${r.note}</span>`:''}
+        ${r.auto?'<span style="font-size:9px;color:#aaa;margin-left:4px">auto</span>':''}
+        <button data-del="${r.id}" data-auto="${r.auto?'1':''}" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:11px;margin-left:4px" title="Supprimer">✕</button>
+        </div>
         <span data-editamt="${r.id}" data-auto="${r.auto?'1':''}" style="font-weight:600;color:#1a73e8;cursor:pointer;text-decoration:underline dotted;padding:2px 6px;border-radius:4px;" title="Cliquer pour modifier">${r.amount||0}€</span>
       </div>`).join('')}
     </div>`;
@@ -1403,7 +1413,16 @@ function renderRevenueDashboard(){
 
   list.querySelectorAll('[data-del]').forEach(btn=>{
     btn.addEventListener('click',()=>{
-      services=services.filter(s=>s&&s.id!==btn.dataset.del);
+      const id=btn.dataset.del;
+      const isAuto=btn.dataset.auto==='1';
+      if(isAuto){
+        // Pour les auto, on crée un "masquage" dans services
+        if(!confirm('Supprimer cette prestation automatique ?'))return;
+        services=services.filter(s=>!s.hideId||s.hideId!==id);
+        services.push({id:'hide_'+Date.now(),hideId:id,hidden:true,amount:0,date:ds(new Date()),property:'',type:'hidden'});
+      } else {
+        services=services.filter(s=>s&&s.id!==id);
+      }
       pushData();renderRevenueDashboard();
     });
   });
