@@ -138,6 +138,7 @@ td.day-cell:hover{filter:brightness(.94);}
   <button class="icon-btn edit-only" id="addBookBtn">+ Réservation</button>
   <button class="icon-btn edit-only" id="addCleanBtn">🧹 Ménage à venir<span id="cleanBadge" style="display:none;background:#ef4444;color:#fff;border-radius:50%;font-size:9px;font-weight:700;padding:1px 5px;margin-left:4px;vertical-align:middle"></span></button>
   <button class="icon-btn" id="ownersListBtn">👥 Propriétaires</button>
+  <button class="icon-btn edit-only" id="revenueBtn">💰 Revenus</button>
   <button class="icon-btn" id="settingsBtn">⚙ Apparence</button>
   <button class="icon-btn edit-only" id="shareBtn">🔗 Partager</button>
   <button class="icon-btn" id="exportBtn">📄 PDF</button>
@@ -339,6 +340,8 @@ td.day-cell:hover{filter:brightness(.94);}
     <div class="fg"><label>Téléphone</label><input type="tel" id="fOwnerPhone" placeholder="ex: 06 12 34 56 78"/></div>
     <div class="fg"><label>Email</label><input type="email" id="fOwnerEmail" placeholder="ex: jean@email.com"/></div>
     <div class="fg"><label>Note</label><input type="text" id="fOwnerNote" placeholder="ex: contrat signé le..."/></div>
+    <div class="fg"><label>Tarif ménage (€ forfait)</label><input type="number" id="fOwnerCleanRate" placeholder="ex: 80" min="0"/></div>
+    <div class="fg"><label>% gestion locative (si location directe)</label><input type="number" id="fOwnerMgmtPct" placeholder="ex: 15" min="0" max="100"/></div>
     <div class="fg"><label>🎁 Boîte cadeau locataires</label>
       <div style="display:flex;gap:12px;margin-top:4px">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
@@ -360,6 +363,49 @@ td.day-cell:hover{filter:brightness(.94);}
 </div>
 
 <!-- SHARE MODAL -->
+<!-- REVENUE MODAL -->
+<div class="modal-overlay" id="revenueModal" style="display:none">
+  <div class="modal" style="max-width:620px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="margin:0">💰 Revenus Infinity Conciergerie</h3>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="revenueMonth" style="padding:5px 8px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px"></select>
+        <button class="btn-s" id="addServiceBtn" style="font-size:11px;padding:5px 10px">+ Prestation</button>
+      </div>
+    </div>
+    <div id="revenueSummary" style="background:linear-gradient(135deg,#f0f9f0,#e8f4fd);border-radius:10px;padding:12px;margin-bottom:12px;display:flex;gap:16px;flex-wrap:wrap"></div>
+    <div id="revenueList"></div>
+    <div class="mactions"><button class="btn-c" id="revenueCloseBtn">Fermer</button></div>
+  </div>
+</div>
+
+<!-- ONE-OFF SERVICE MODAL -->
+<div class="modal-overlay" id="serviceModal" style="display:none">
+  <div class="modal">
+    <h3>➕ Ajouter une prestation</h3>
+    <div class="fg"><label>Bien</label><select id="fServiceProp"></select></div>
+    <div class="fg"><label>Type de prestation</label>
+      <select id="fServiceType">
+        <option value="deplacement">🚗 Déplacement & intervention — 20€</option>
+        <option value="menage_debut">🧹 Ménage début de saison — 80€</option>
+        <option value="menage_ponctuel">🧹 Ménage ponctuel — 25€/h</option>
+        <option value="nettoyage_ext">🌿 Nettoyage extérieur — 210€</option>
+        <option value="jardinage">🌱 Jardinage — 30€/h</option>
+        <option value="travaux">🔧 Petits travaux — 30€/h</option>
+        <option value="boite_cadeau">🎁 Boîte cadeau</option>
+        <option value="autre">✏️ Autre (montant libre)</option>
+      </select>
+    </div>
+    <div class="fg"><label>Montant (€)</label><input type="number" id="fServiceAmount" min="0" placeholder="ex: 80"/></div>
+    <div class="fg"><label>Date</label><input type="date" id="fServiceDate"/></div>
+    <div class="fg"><label>Note (optionnel)</label><input type="text" id="fServiceNote" placeholder="ex: 2h de jardinage..."/></div>
+    <div class="mactions">
+      <button class="btn-c" id="serviceCancelBtn">Annuler</button>
+      <button class="btn-s" id="serviceSaveBtn">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <!-- OWNERS DIRECTORY MODAL -->
 <div class="modal-overlay" id="ownersListModal" style="display:none">
   <div class="modal" style="max-width:560px">
@@ -449,7 +495,11 @@ let colors={confirmed:'#1a73e8',option:'#f59e0b',blocked:'#9ca3af'};
 let mgmtColors={totale:'#e8f5e9',partielle:'#fff8e1',aucune:'#fce8e8',none:'#f5f5f5'};
 let cleanColors={interieur:'#f59e0b',exterieur:'#3b82f6',done:'#22c55e'};
 let platColors={Airbnb:'#FF5A5F',Booking:'#003580',Direct:'#22c55e',Autre:'#888888'};
-let properties=[],bookings=[],owners={},propRates={},propTariffs={},propMgmt={},propType={},checklists={},cleaningTasks=[];
+let properties=[],bookings=[],owners={},propRates={},propTariffs={},propMgmt={},propType={},checklists={},cleaningTasks=[],services=[];
+let nextServiceId=1;
+
+// Tarifs fixes Infinity Conciergerie
+const INFINITY_RATES={accueil:70,menage_debut:80,menage_ponctuel:25,nettoyage_ext:210,jardinage:30,travaux:30,deplacement:20,mgmt_pct:15};
 let nextCleanId=1;
 let nextId=1;
 let db=null,fbEnabled=false;
@@ -492,6 +542,8 @@ function initFirebase(url){
         else if(data.owners) owners=data.owners||{};
         if(data.checklists) checklists=data.checklists||{};
         if(data.cleaningTasks) cleaningTasks=data.cleaningTasks.filter(Boolean);
+        if(data.services) services=data.services.filter(Boolean);
+        if(data.nextServiceId) nextServiceId=data.nextServiceId;
         if(data.nextCleanId) nextCleanId=data.nextCleanId;
         // Charger propType, propMgmt, propRates depuis les tableaux indexés
         if(data.propTypeArr&&properties){
@@ -552,7 +604,7 @@ function pushData(){
     if(o.giftBox)clean.giftBox=o.giftBox;
     return Object.keys(clean).length>0?clean:null;
   });
-  db.ref('planning').set({properties,bookings,nextId,ownersArr,propRatesArr,propMgmtArr,propTypeArr,propTariffsArr,checklists,cleaningTasks,nextCleanId,settings:{themeId:activeTheme.id,colors,mgmtColors,cleanColors,platColors,bgOpacity},updatedAt:Date.now()})
+  db.ref('planning').set({properties,bookings,nextId,ownersArr,propRatesArr,propMgmtArr,propTypeArr,propTariffsArr,checklists,cleaningTasks,nextCleanId,services,nextServiceId,settings:{themeId:activeTheme.id,colors,mgmtColors,cleanColors,platColors,bgOpacity},updatedAt:Date.now()})
     .then(()=>setSyncStatus('online','Synchronisé')).catch(e=>setSyncStatus('error',e.message));
 }
 
@@ -1120,6 +1172,8 @@ document.getElementById('ownerViewEditBtn').addEventListener('click',()=>{
   document.getElementById('ownerModalProp').textContent=currentOwnerProp;
   document.getElementById('fOwnerName').value=o.name||'';document.getElementById('fOwnerPhone').value=o.phone||'';
   document.getElementById('fOwnerEmail').value=o.email||'';document.getElementById('fOwnerNote').value=o.note||'';
+  document.getElementById('fOwnerCleanRate').value=o.cleanRate||'';
+  document.getElementById('fOwnerMgmtPct').value=o.mgmtPct||'';
   const giftVal=o.giftBox||'';
   document.querySelectorAll('input[name="fGiftBox"]').forEach(r=>r.checked=(r.value===giftVal));
   document.getElementById('ownerViewModal').style.display='none';document.getElementById('ownerModal').style.display='flex';
@@ -1128,7 +1182,17 @@ document.getElementById('ownerViewCloseBtn').addEventListener('click',()=>docume
 document.getElementById('ownerCancelBtn').addEventListener('click',()=>document.getElementById('ownerModal').style.display='none');
 document.getElementById('ownerSaveBtn').addEventListener('click',()=>{
   const giftBox=document.querySelector('input[name="fGiftBox"]:checked')?.value||'';
-  owners[currentOwnerProp]={name:document.getElementById('fOwnerName').value.trim(),phone:document.getElementById('fOwnerPhone').value.trim(),email:document.getElementById('fOwnerEmail').value.trim(),note:document.getElementById('fOwnerNote').value.trim(),giftBox};
+  const cleanRate=parseFloat(document.getElementById('fOwnerCleanRate').value)||0;
+  const mgmtPct=parseFloat(document.getElementById('fOwnerMgmtPct').value)||0;
+  const clean={};
+  const name=document.getElementById('fOwnerName').value.trim();
+  const phone=document.getElementById('fOwnerPhone').value.trim();
+  const email=document.getElementById('fOwnerEmail').value.trim();
+  const note=document.getElementById('fOwnerNote').value.trim();
+  if(name)clean.name=name;if(phone)clean.phone=phone;if(email)clean.email=email;
+  if(note)clean.note=note;if(giftBox)clean.giftBox=giftBox;
+  if(cleanRate)clean.cleanRate=cleanRate;if(mgmtPct)clean.mgmtPct=mgmtPct;
+  owners[currentOwnerProp]=clean;
   document.getElementById('ownerModal').style.display='none';render();pushData();saveLocalData();
 });
 
@@ -1230,6 +1294,151 @@ document.getElementById('cleanDeleteBtn').addEventListener('click',()=>{
 });
 
 // ─── PDF EXPORT ──────────────────────────────────────────────────────────────
+// ─── REVENUS ─────────────────────────────────────────────────────────────────
+const SERVICE_LABELS={accueil:'🏠 Accueil & état des lieux',menage_debut:'🧹 Ménage début saison',menage_ponctuel:'🧹 Ménage ponctuel',nettoyage_ext:'🌿 Nettoyage extérieur',jardinage:'🌱 Jardinage',travaux:'🔧 Petits travaux',deplacement:'🚗 Déplacement',boite_cadeau:'🎁 Boîte cadeau',gestion_pct:'📊 % Gestion locative',autre:'✏️ Autre'};
+const SERVICE_DEFAULT_AMOUNTS={accueil:70,menage_debut:80,menage_ponctuel:25,nettoyage_ext:210,jardinage:30,travaux:30,deplacement:20,boite_cadeau:0,gestion_pct:0,autre:0};
+
+function getAutoRevenues(month){
+  // month = "2026-04"
+  const revenues=[];
+  const [y,m]=month.split('-').map(Number);
+  const mStart=`${y}-${String(m).padStart(2,'0')}-01`;
+  const mEnd=`${y}-${String(m).padStart(2,'0')}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`;
+
+  bookings.filter(b=>b&&b.status==='confirmed'&&b.start>=mStart&&b.start<=mEnd).forEach(b=>{
+    // Accueil (check-in)
+    revenues.push({id:`auto_checkin_${b.id}`,auto:true,property:b.property,type:'accueil',date:b.start,amount:INFINITY_RATES.accueil,note:`Check-in ${b.name||''}`});
+    // Check-out
+    revenues.push({id:`auto_checkout_${b.id}`,auto:true,property:b.property,type:'accueil',date:b.end,amount:INFINITY_RATES.accueil,note:`Check-out ${b.name||''}`});
+    // % gestion si location directe
+    const o=owners[b.property]||{};
+    const pct=o.mgmtPct||0;
+    if(b.platform==='Direct'&&pct>0&&b.rate){
+      const nights=nightsBetween(b.start,b.end);
+      const total=b.rate*nights;
+      revenues.push({id:`auto_pct_${b.id}`,auto:true,property:b.property,type:'gestion_pct',date:b.start,amount:Math.round(total*pct/100),note:`${pct}% sur ${total}€ (${b.name||''})`});
+    }
+    // Boîte cadeau 7,90€ si propriétaire a validé
+    if(o.giftBox==='oui'){
+      revenues.push({id:`auto_gift_${b.id}`,auto:true,property:b.property,type:'boite_cadeau',date:b.start,amount:7.90,note:`Boîte cadeau (${b.name||''})`});
+    }
+  });
+
+  // Ménages liés aux réservations (sans doublon avec services manuels)
+  const manualCleanProps=services.filter(s=>s&&s.date>=mStart&&s.date<=mEnd&&(s.type==='menage_debut'||s.type==='menage_ponctuel')).map(s=>s.property+'_'+s.date);
+  cleaningTasks.filter(c=>c&&c.date>=mStart&&c.date<=mEnd&&c.type!=='exterieur').forEach(c=>{
+    const key=c.property+'_'+c.date;
+    if(manualCleanProps.includes(key))return; // éviter doublon
+    const o=owners[c.property]||{};
+    const rate=o.cleanRate||INFINITY_RATES.menage_ponctuel;
+    revenues.push({id:`auto_clean_${c.id}`,auto:true,property:c.property,type:'menage_ponctuel',date:c.date,amount:rate,note:`Ménage intérieur`});
+  });
+
+  return revenues;
+}
+
+function openRevenueDashboard(){
+  const modal=document.getElementById('revenueModal');
+  // Remplir le select mois
+  const sel=document.getElementById('revenueMonth');
+  sel.innerHTML='';
+  const now=new Date();
+  for(let i=-2;i<=4;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()+i,1);
+    const val=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const lbl=d.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+    const opt=document.createElement('option');opt.value=val;opt.textContent=lbl;
+    if(i===0)opt.selected=true;
+    sel.appendChild(opt);
+  }
+  renderRevenueDashboard();
+  modal.style.display='flex';
+}
+
+function renderRevenueDashboard(){
+  const month=document.getElementById('revenueMonth').value;
+  const [y,m]=month.split('-').map(Number);
+  const mStart=`${y}-${String(m).padStart(2,'0')}-01`;
+  const mEnd=`${y}-${String(m).padStart(2,'0')}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`;
+  const autoRevs=getAutoRevenues(month);
+  const manualRevs=services.filter(s=>s&&s.date>=mStart&&s.date<=mEnd);
+  const allRevs=[...autoRevs,...manualRevs].sort((a,b)=>a.date.localeCompare(b.date));
+  const total=allRevs.reduce((sum,r)=>sum+(r.amount||0),0);
+  const byProp={};
+  allRevs.forEach(r=>{byProp[r.property]=(byProp[r.property]||0)+(r.amount||0);});
+
+  // Résumé
+  document.getElementById('revenueSummary').innerHTML=`
+    <div style="flex:1;text-align:center"><div style="font-size:22px;font-weight:700;color:#1a73e8">${total}€</div><div style="font-size:11px;color:#666">Total du mois</div></div>
+    <div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:600;color:#22c55e">${autoRevs.reduce((s,r)=>s+r.amount,0)}€</div><div style="font-size:11px;color:#666">Automatique</div></div>
+    <div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:600;color:#f59e0b">${manualRevs.reduce((s,r)=>s+(r.amount||0),0)}€</div><div style="font-size:11px;color:#666">Manuel</div></div>
+    <div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:600;color:#7c3aed">${allRevs.length}</div><div style="font-size:11px;color:#666">Prestations</div></div>`;
+
+  // Liste par bien
+  const list=document.getElementById('revenueList');
+  if(allRevs.length===0){list.innerHTML='<p style="color:#aaa;text-align:center;padding:20px">Aucune prestation ce mois</p>';return;}
+  const props=[...new Set(allRevs.map(r=>r.property))];
+  list.innerHTML=props.map(prop=>{
+    const propRevs=allRevs.filter(r=>r.property===prop);
+    const propTotal=propRevs.reduce((s,r)=>s+(r.amount||0),0);
+    return `<div style="margin-bottom:12px;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden">
+      <div style="background:#f5f5f5;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+        <strong style="font-size:13px">${prop}</strong>
+        <span style="font-size:13px;font-weight:700;color:#1a73e8">${propTotal}€</span>
+      </div>
+      ${propRevs.map(r=>`<div style="padding:7px 12px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;font-size:12px">
+        <div><span style="color:#888;margin-right:6px">${r.date}</span>${SERVICE_LABELS[r.type]||r.type}${r.note?` <span style="color:#aaa;font-size:11px">— ${r.note}</span>`:''}${r.auto?'':` <button data-del="${r.id}" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:11px;margin-left:4px">✕</button>`}</div>
+        <span style="font-weight:600;color:#333">${r.amount||0}€</span>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      services=services.filter(s=>s&&s.id!==btn.dataset.del);
+      pushData();renderRevenueDashboard();
+    });
+  });
+}
+
+document.getElementById('revenueBtn').addEventListener('click',openRevenueDashboard);
+document.getElementById('revenueCloseBtn').addEventListener('click',()=>document.getElementById('revenueModal').style.display='none');
+document.getElementById('revenueMonth').addEventListener('change',renderRevenueDashboard);
+
+document.getElementById('addServiceBtn').addEventListener('click',()=>{
+  document.getElementById('fServiceProp').innerHTML=properties.map(p=>`<option>${p}</option>`).join('');
+  document.getElementById('fServiceDate').value=ds(new Date());
+  document.getElementById('fServiceAmount').value='';
+  document.getElementById('fServiceNote').value='';
+  document.getElementById('fServiceType').value='deplacement';
+  document.getElementById('revenueModal').style.display='none';
+  document.getElementById('serviceModal').style.display='flex';
+});
+
+document.getElementById('fServiceType').addEventListener('change',function(){
+  const def=SERVICE_DEFAULT_AMOUNTS[this.value]||0;
+  if(def>0)document.getElementById('fServiceAmount').value=def;
+});
+
+document.getElementById('serviceCancelBtn').addEventListener('click',()=>{
+  document.getElementById('serviceModal').style.display='none';
+  document.getElementById('revenueModal').style.display='flex';
+  renderRevenueDashboard();
+});
+
+document.getElementById('serviceSaveBtn').addEventListener('click',()=>{
+  const prop=document.getElementById('fServiceProp').value;
+  const type=document.getElementById('fServiceType').value;
+  const amount=parseFloat(document.getElementById('fServiceAmount').value)||0;
+  const date=document.getElementById('fServiceDate').value;
+  if(!prop||!date||!amount){showToast('Bien, date et montant requis');return;}
+  services.push({id:'svc_'+Date.now(),property:prop,type,amount,date,note:document.getElementById('fServiceNote').value.trim()});
+  nextServiceId++;
+  document.getElementById('serviceModal').style.display='none';
+  document.getElementById('revenueModal').style.display='flex';
+  renderRevenueDashboard();pushData();showToast('Prestation enregistrée ✓');
+});
+
 document.getElementById('exportBtn').addEventListener('click',()=>window.print());
 
 // ─── OWNERS DIRECTORY ────────────────────────────────────────────────────────
