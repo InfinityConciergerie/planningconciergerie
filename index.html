@@ -1299,39 +1299,42 @@ const SERVICE_LABELS={accueil:'🏠 Accueil & état des lieux',menage_debut:'�
 const SERVICE_DEFAULT_AMOUNTS={accueil:70,menage_debut:80,menage_ponctuel:25,nettoyage_ext:210,jardinage:30,travaux:30,deplacement:20,boite_cadeau:0,gestion_pct:0,autre:0};
 
 function getAutoRevenues(month){
-  // month = "2026-04"
   const revenues=[];
   const [y,m]=month.split('-').map(Number);
   const mStart=`${y}-${String(m).padStart(2,'0')}-01`;
   const mEnd=`${y}-${String(m).padStart(2,'0')}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`;
+  // Map des overrides par id
+  const overrides={};
+  services.filter(s=>s&&s.overrideId).forEach(s=>overrides[s.overrideId]=s.amount);
 
   bookings.filter(b=>b&&b.status==='confirmed'&&b.start>=mStart&&b.start<=mEnd).forEach(b=>{
-    // Accueil (check-in)
-    revenues.push({id:`auto_checkin_${b.id}`,auto:true,property:b.property,type:'accueil',date:b.start,amount:INFINITY_RATES.accueil,note:`Check-in ${b.name||''}`});
-    // Check-out
-    revenues.push({id:`auto_checkout_${b.id}`,auto:true,property:b.property,type:'accueil',date:b.end,amount:INFINITY_RATES.accueil,note:`Check-out ${b.name||''}`});
+    const rid=`auto_accueil_${b.id}`;
+    revenues.push({id:rid,auto:true,property:b.property,type:'accueil',date:b.start,amount:overrides[rid]!==undefined?overrides[rid]:INFINITY_RATES.accueil,note:`Accueil & état des lieux (${b.name||''})`});
     // % gestion si location directe
     const o=owners[b.property]||{};
     const pct=o.mgmtPct||0;
     if(b.platform==='Direct'&&pct>0&&b.rate){
       const nights=nightsBetween(b.start,b.end);
       const total=b.rate*nights;
-      revenues.push({id:`auto_pct_${b.id}`,auto:true,property:b.property,type:'gestion_pct',date:b.start,amount:Math.round(total*pct/100),note:`${pct}% sur ${total}€ (${b.name||''})`});
+      const rid2=`auto_pct_${b.id}`;
+      revenues.push({id:rid2,auto:true,property:b.property,type:'gestion_pct',date:b.start,amount:overrides[rid2]!==undefined?overrides[rid2]:Math.round(total*pct/100),note:`${pct}% sur ${total}€ (${b.name||''})`});
     }
     // Boîte cadeau 7,90€ si propriétaire a validé
     if(o.giftBox==='oui'){
-      revenues.push({id:`auto_gift_${b.id}`,auto:true,property:b.property,type:'boite_cadeau',date:b.start,amount:7.90,note:`Boîte cadeau (${b.name||''})`});
+      const rid3=`auto_gift_${b.id}`;
+      revenues.push({id:rid3,auto:true,property:b.property,type:'boite_cadeau',date:b.start,amount:overrides[rid3]!==undefined?overrides[rid3]:7.90,note:`Boîte cadeau (${b.name||''})`});
     }
   });
 
   // Ménages liés aux réservations (sans doublon avec services manuels)
-  const manualCleanProps=services.filter(s=>s&&s.date>=mStart&&s.date<=mEnd&&(s.type==='menage_debut'||s.type==='menage_ponctuel')).map(s=>s.property+'_'+s.date);
+  const manualCleanProps=services.filter(s=>s&&!s.overrideId&&s.date>=mStart&&s.date<=mEnd&&(s.type==='menage_debut'||s.type==='menage_ponctuel')).map(s=>s.property+'_'+s.date);
   cleaningTasks.filter(c=>c&&c.date>=mStart&&c.date<=mEnd&&c.type!=='exterieur').forEach(c=>{
     const key=c.property+'_'+c.date;
-    if(manualCleanProps.includes(key))return; // éviter doublon
+    if(manualCleanProps.includes(key))return;
     const o=owners[c.property]||{};
     const rate=o.cleanRate||INFINITY_RATES.menage_ponctuel;
-    revenues.push({id:`auto_clean_${c.id}`,auto:true,property:c.property,type:'menage_ponctuel',date:c.date,amount:rate,note:`Ménage intérieur`});
+    const rid4=`auto_clean_${c.id}`;
+    revenues.push({id:rid4,auto:true,property:c.property,type:'menage_ponctuel',date:c.date,amount:overrides[rid4]!==undefined?overrides[rid4]:rate,note:`Ménage intérieur`});
   });
 
   return revenues;
@@ -1387,8 +1390,8 @@ function renderRevenueDashboard(){
         <span style="font-size:13px;font-weight:700;color:#1a73e8">${propTotal}€</span>
       </div>
       ${propRevs.map(r=>`<div style="padding:7px 12px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;font-size:12px">
-        <div><span style="color:#888;margin-right:6px">${r.date}</span>${SERVICE_LABELS[r.type]||r.type}${r.note?` <span style="color:#aaa;font-size:11px">— ${r.note}</span>`:''}${r.auto?'':` <button data-del="${r.id}" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:11px;margin-left:4px">✕</button>`}</div>
-        <span style="font-weight:600;color:#333">${r.amount||0}€</span>
+        <div style="flex:1"><span style="color:#888;margin-right:6px">${r.date}</span>${SERVICE_LABELS[r.type]||r.type}${r.note?` <span style="color:#aaa;font-size:11px">— ${r.note}</span>`:''}${r.auto?'<span style="font-size:9px;color:#aaa;margin-left:4px">auto</span>':` <button data-del="${r.id}" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:11px;margin-left:4px">✕</button>`}</div>
+        <span data-editamt="${r.id}" data-auto="${r.auto?'1':''}" style="font-weight:600;color:#1a73e8;cursor:pointer;text-decoration:underline dotted;padding:2px 6px;border-radius:4px;" title="Cliquer pour modifier">${r.amount||0}€</span>
       </div>`).join('')}
     </div>`;
   }).join('');
@@ -1396,6 +1399,27 @@ function renderRevenueDashboard(){
   list.querySelectorAll('[data-del]').forEach(btn=>{
     btn.addEventListener('click',()=>{
       services=services.filter(s=>s&&s.id!==btn.dataset.del);
+      pushData();renderRevenueDashboard();
+    });
+  });
+
+  // Clic sur montant pour modifier
+  list.querySelectorAll('[data-editamt]').forEach(span=>{
+    span.addEventListener('click',()=>{
+      const id=span.dataset.editamt;
+      const isAuto=span.dataset.auto==='1';
+      const currentVal=parseFloat(span.textContent)||0;
+      const newVal=parseFloat(prompt(`Modifier le montant (€) :`,currentVal));
+      if(isNaN(newVal)||newVal<0)return;
+      if(isAuto){
+        // Pour les revenus auto, on crée un override dans services
+        // D'abord supprimer un override existant s'il y en a un
+        services=services.filter(s=>!s.overrideId||s.overrideId!==id);
+        services.push({id:'ovr_'+id,overrideId:id,property:span.closest('[style*="border"]')?.querySelector('strong')?.textContent||'',amount:newVal,auto:false,overridden:true});
+      } else {
+        const s=services.find(s=>s&&s.id===id);
+        if(s)s.amount=newVal;
+      }
       pushData();renderRevenueDashboard();
     });
   });
