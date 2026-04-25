@@ -488,7 +488,8 @@ function initFirebase(url){
         if(data.properties) properties=data.properties;
         if(data.bookings) bookings=data.bookings.filter(Boolean);
         if(data.nextId) nextId=data.nextId;
-        if(data.owners) owners=data.owners||{};
+        if(data.ownersArr&&properties){owners={};properties.forEach((p,i)=>{if(data.ownersArr[i])owners[p]=data.ownersArr[i];});}
+        else if(data.owners) owners=data.owners||{};
         if(data.checklists) checklists=data.checklists||{};
         if(data.cleaningTasks) cleaningTasks=data.cleaningTasks.filter(Boolean);
         if(data.nextCleanId) nextCleanId=data.nextCleanId;
@@ -539,7 +540,8 @@ function pushData(){
   const propMgmtArr=properties.map(p=>propMgmt[p]||'');
   const propRatesArr=properties.map(p=>propRates[p]||0);
   const propTariffsArr=properties.map(p=>propTariffs[p]||[]);
-  db.ref('planning').set({properties,bookings,nextId,owners,propRatesArr,propMgmtArr,propTypeArr,propTariffsArr,checklists,cleaningTasks,nextCleanId,settings:{themeId:activeTheme.id,colors,mgmtColors,cleanColors,platColors,bgOpacity},updatedAt:Date.now()})
+  const ownersArr=properties.map(p=>owners[p]||null);
+  db.ref('planning').set({properties,bookings,nextId,ownersArr,propRatesArr,propMgmtArr,propTypeArr,propTariffsArr,checklists,cleaningTasks,nextCleanId,settings:{themeId:activeTheme.id,colors,mgmtColors,cleanColors,platColors,bgOpacity},updatedAt:Date.now()})
     .then(()=>setSyncStatus('online','Synchronisé')).catch(e=>setSyncStatus('error',e.message));
 }
 
