@@ -203,7 +203,7 @@ td.day-cell:hover{filter:brightness(.94);}
   <input type="text" id="searchInput" placeholder="🔍 Bien ou propriétaire..." style="padding:5px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px;min-width:180px;background:#fafafa;color:#1a1a1a;font-family:inherit;">
 </div>
 <div class="stats-bar" id="statsBar"></div>
-<div id="todayBanner" style="display:none;background:linear-gradient(135deg,#e8f5e9,#e3f2fd);border:1px solid #c8e6c9;border-radius:10px;padding:10px 16px;margin-bottom:.75rem;display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:13px;font-weight:500;"></div>
+<div id="todayBanner" style="display:none;background:linear-gradient(135deg,#e8f5e9,#e3f2fd);border:1px solid #c8e6c9;border-radius:10px;padding:10px 16px;margin-bottom:.75rem;gap:16px;flex-wrap:wrap;align-items:center;font-size:13px;font-weight:500;"></div>
 <div id="timelineView" style="display:none;"></div>
 <div class="legend" id="legend">
   <div class="legend-item"><div class="legend-dot" id="ldConfirmed" style="background:#1a73e8"></div>Confirmé</div>
@@ -865,8 +865,8 @@ function render(){
   table.querySelectorAll('.pname').forEach(el=>el.addEventListener('click',e=>{if(isReadOnly)return;e.stopPropagation();openPropModal(el.title);}));
   table.querySelectorAll('.day-cell').forEach(el=>el.addEventListener('click',()=>{if(isReadOnly)return;openNew(el.dataset.prop,el.dataset.date);}));
   table.querySelectorAll('.prop-td').forEach(el=>{const name=el.querySelector('.pname');if(name)addLongPress(el,name.title);});
-  document.getElementById('grid-wrap')||document.querySelector('.grid-wrap');
-  document.querySelector('.grid-wrap').style.display='';
+  const gridWrap=document.querySelector('.grid-wrap');
+  if(gridWrap)gridWrap.style.display='';
   document.getElementById('timelineView').style.display='none';
   document.getElementById('legend').style.display='';
   applyTheme();
@@ -1310,10 +1310,8 @@ function getAutoRevenues(month){
   bookings.filter(b=>b&&b.status==='confirmed'&&b.start>=mStart&&b.start<=mEnd).forEach(b=>{
     const rid=`auto_accueil_${b.id}`;
     revenues.push({id:rid,auto:true,property:b.property,type:'accueil',date:b.start,amount:overrides[rid]!==undefined?overrides[rid]:INFINITY_RATES.accueil,note:`Accueil & état des lieux (${b.name||''})`});
-    // % gestion si location directe
-    const o=owners[b.property]||{};
-    const pct=o.mgmtPct||0;
     // % gestion selon plateforme et type de gestion
+    const o=owners[b.property]||{};
     const pct=o.mgmtPct||0;
     const isDirect=b.platform==='Direct'||!b.platform;
     const isAirbnbBooking=b.platform==='Airbnb'||b.platform==='Booking';
@@ -1372,6 +1370,7 @@ function renderRevenueDashboard(){
   const autoRevs=getAutoRevenues(month);
   const manualRevs=services.filter(s=>s&&s.date>=mStart&&s.date<=mEnd);
   const allRevs=[...autoRevs,...manualRevs].sort((a,b)=>a.date.localeCompare(b.date));
+  window._currentAllRevs=allRevs; // accessible aux listeners
   const total=allRevs.reduce((sum,r)=>sum+(r.amount||0),0);
   const byProp={};
   allRevs.forEach(r=>{byProp[r.property]=(byProp[r.property]||0)+(r.amount||0);});
@@ -1409,19 +1408,21 @@ function renderRevenueDashboard(){
     });
   });
 
-  // Clic sur montant pour modifier
   list.querySelectorAll('[data-editamt]').forEach(span=>{
     span.addEventListener('click',()=>{
       const id=span.dataset.editamt;
       const isAuto=span.dataset.auto==='1';
       const currentVal=parseFloat(span.textContent)||0;
-      const newVal=parseFloat(prompt(`Modifier le montant (€) :`,currentVal));
+      const newValStr=prompt('Modifier le montant (€) :',currentVal);
+      if(newValStr===null)return;
+      const newVal=parseFloat(newValStr);
       if(isNaN(newVal)||newVal<0)return;
       if(isAuto){
-        // Pour les revenus auto, on crée un override dans services
-        // D'abord supprimer un override existant s'il y en a un
         services=services.filter(s=>!s.overrideId||s.overrideId!==id);
-        services.push({id:'ovr_'+id,overrideId:id,property:span.closest('[style*="border"]')?.querySelector('strong')?.textContent||'',amount:newVal,auto:false,overridden:true});
+        // Trouver la propriété depuis allRevs
+        const rev=(window._currentAllRevs||[]).find(r=>r.id===id);
+        const prop=rev?rev.property:'';
+        services.push({id:'ovr_'+Date.now(),overrideId:id,property:prop,amount:newVal,auto:false,overridden:true,type:'override',date:rev?rev.date:ds(new Date()),note:'Montant modifié'});
       } else {
         const s=services.find(s=>s&&s.id===id);
         if(s)s.amount=newVal;
@@ -1550,7 +1551,8 @@ function updateCleanBadge(){
 
 // ─── TIMELINE VIEW ───────────────────────────────────────────────────────────
 function renderTimeline(){
-  document.querySelector('.grid-wrap').style.display='none';
+  const gw=document.querySelector('.grid-wrap');
+  if(gw)gw.style.display='none';
   document.getElementById('legend').style.display='none';
   const container=document.getElementById('timelineView');
   container.style.display='block';
