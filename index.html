@@ -1313,11 +1313,17 @@ function getAutoRevenues(month){
     // % gestion si location directe
     const o=owners[b.property]||{};
     const pct=o.mgmtPct||0;
-    if(b.platform==='Direct'&&pct>0&&b.rate){
+    // % gestion selon plateforme et type de gestion
+    const pct=o.mgmtPct||0;
+    const isDirect=b.platform==='Direct'||!b.platform;
+    const isAirbnbBooking=b.platform==='Airbnb'||b.platform==='Booking';
+    const isGestionTotale=propMgmt[b.property]==='totale';
+    const applyPct=pct>0&&b.rate&&(isDirect||(isAirbnbBooking&&isGestionTotale));
+    if(applyPct){
       const nights=nightsBetween(b.start,b.end);
       const total=b.rate*nights;
       const rid2=`auto_pct_${b.id}`;
-      revenues.push({id:rid2,auto:true,property:b.property,type:'gestion_pct',date:b.start,amount:overrides[rid2]!==undefined?overrides[rid2]:Math.round(total*pct/100),note:`${pct}% sur ${total}€ (${b.name||''})`});
+      revenues.push({id:rid2,auto:true,property:b.property,type:'gestion_pct',date:b.start,amount:overrides[rid2]!==undefined?overrides[rid2]:Math.round(total*pct/100),note:`${pct}% sur ${total}€ (${b.name||''}) — ${b.platform||'Direct'}`});
     }
     // Boîte cadeau 7,90€ si propriétaire a validé
     if(o.giftBox==='oui'){
