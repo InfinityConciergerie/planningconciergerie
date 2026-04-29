@@ -209,9 +209,9 @@ td.day-cell:hover{filter:brightness(.94);}
   <div class="legend-item"><div class="legend-dot" id="ldConfirmed" style="background:#1a73e8"></div>Confirmé</div>
   <div class="legend-item"><div class="legend-dot" id="ldOption" style="background:#f59e0b"></div>Option</div>
   <div class="legend-item"><div class="legend-dot" id="ldBlocked" style="background:#9ca3af"></div>Bloqué</div>
-  <div class="legend-item"><div class="legend-dot" id="ldAirbnb" style="background:#FF5A5F"></div>Airbnb</div>
-  <div class="legend-item"><div class="legend-dot" id="ldBooking" style="background:#003580"></div>Booking</div>
-  <div class="legend-item"><div class="legend-dot" id="ldDirect" style="background:#22c55e"></div>Direct</div>
+  <div class="legend-item"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FF5A5F;margin-right:4px;border:1px solid #ddd" id="ldAirbnb"></span>Airbnb</div>
+  <div class="legend-item"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#003580;margin-right:4px;border:1px solid #ddd" id="ldBooking"></span>Booking</div>
+  <div class="legend-item"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#22c55e;margin-right:4px;border:1px solid #ddd" id="ldDirect"></span>Direct</div>
   <div class="legend-item" style="margin-left:auto;font-size:10px;color:#aaa">▶ arrivée &nbsp; ◀ départ</div>
 </div>
 <div class="grid-wrap"><table id="mainTable"></table></div>
@@ -828,17 +828,18 @@ function render(){
         const span=right-left+1;
         // Couleur selon plateforme si confirmé, sinon couleur statut
         const platColors={Airbnb:'#FF5A5F',Booking:'#003580',Direct:'#22c55e',Autre:'#888'};
-        const col=b.status==='blocked'?colors.blocked:(b.status==='option'?colors.option:(b.platform&&platColors[b.platform]?platColors[b.platform]:colors.confirmed));
+        const col=b.status==='blocked'?colors.blocked:(b.status==='option'?colors.option:colors.confirmed);
+        const platCol=b.platform&&platColors[b.platform]?platColors[b.platform]:null;
+        const platDot=platCol&&b.status==='confirmed'?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${platCol};margin-right:3px;flex-shrink:0;border:1px solid rgba(255,255,255,0.5)"></span>`:'';
         const tc=textColor(col);
         const isArr=b.start===ds(d);
         const isDep=b.end===ds(addDays(d,span));
         const label=b.name||(b.status==='blocked'?'Bloqué':'');
-        const plat=b.platform?` · ${b.platform}`:'';
         const nights=nightsBetween(b.start,b.end);
         const rr=span<days.length?'0px':'2px';
         const hasNote=b.notes&&b.notes.trim();
         inner+=`<div class="seg" data-id="${b.id}" style="left:2px;width:calc(${span*100}% - 4px);border-radius:3px ${rr} ${rr} 3px;background:${col};color:${tc};">
-          <div class="seg-inner">${isArr?'▶ ':''}${label}${plat}${hasNote?' 📝':''}${isDep?' ◀':''}<span class="night-badge">${nights}n</span></div>
+          <div class="seg-inner" style="display:flex;align-items:center">${isArr?'▶ ':''}${platDot}${label}${hasNote?' 📝':''}${isDep?' ◀':''}<span class="night-badge">${nights}n</span></div>
         </div>`;
       });
       cleanHere.forEach((c,ci)=>{
@@ -1609,9 +1610,11 @@ function renderTimeline(){
       const leftDays=Math.round((bStart-start)/86400000);
       const widthDays=Math.round((bEnd-bStart)/86400000);
       if(widthDays<=0)return;
-      const col=b.status==='blocked'?colors.blocked:(b.status==='option'?colors.option:(b.platform&&platColors[b.platform]?platColors[b.platform]:colors.confirmed));
+      const col=b.status==='blocked'?colors.blocked:(b.status==='option'?colors.option:colors.confirmed);
       const tc=textColor(col);
-      html+=`<div data-id="${b.id}" style="position:absolute;left:${leftDays*28}px;width:${widthDays*28-2}px;top:6px;height:22px;background:${col};color:${tc};border-radius:4px;font-size:9px;font-weight:600;display:flex;align-items:center;padding:0 4px;cursor:pointer;overflow:hidden;white-space:nowrap;z-index:2;">${b.name||''}</div>`;
+      const platCol2=b.platform&&platColors[b.platform]?platColors[b.platform]:null;
+      const platDot2=platCol2&&b.status==='confirmed'?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${platCol2};margin-right:3px;border:1px solid rgba(255,255,255,0.5);flex-shrink:0"></span>`:'';
+      html+=`<div data-id="${b.id}" style="position:absolute;left:${leftDays*28}px;width:${widthDays*28-2}px;top:6px;height:22px;background:${col};color:${tc};border-radius:4px;font-size:9px;font-weight:600;display:flex;align-items:center;padding:0 4px;cursor:pointer;overflow:hidden;white-space:nowrap;z-index:2;">${platDot2}${b.name||''}</div>`;
     });
     propCleans.forEach(c=>{
       const cLeft=Math.round((new Date(c.date+'T00:00:00')-start)/86400000);
