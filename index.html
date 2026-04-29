@@ -135,6 +135,7 @@ td.day-cell:hover{filter:brightness(.94);}
   <span class="period-label" id="periodLabel"></span>
   <button class="nav-btn" id="nextBtn">&#8594;</button>
   <button class="icon-btn edit-only" id="addPropBtn">+ Bien</button>
+  <button class="icon-btn edit-only" id="reorderBtn">↕ Ordre des biens</button>
   <button class="icon-btn edit-only" id="addBookBtn">+ Réservation</button>
   <button class="icon-btn edit-only" id="addCleanBtn">🧹 Ménage à venir<span id="cleanBadge" style="display:none;background:#ef4444;color:#fff;border-radius:50%;font-size:9px;font-weight:700;padding:1px 5px;margin-left:4px;vertical-align:middle"></span></button>
   <button class="icon-btn" id="ownersListBtn">👥 Propriétaires</button>
@@ -200,6 +201,7 @@ td.day-cell:hover{filter:brightness(.94);}
   </div>
   <select style="display:none" id="filterProp"><option value="">Tous les biens</option></select>
   <select class="filter-select" id="filterStatus"><option value="">Tous statuts</option><option value="confirmed">Confirmé</option><option value="option">Option</option><option value="blocked">Bloqué</option></select>
+  <select class="filter-select" id="filterPlat"><option value="">Toutes plateformes</option><option value="Direct">Direct</option><option value="Airbnb">Airbnb</option><option value="Booking">Booking</option><option value="Autre">Autre</option></select>
   <input type="text" id="searchInput" placeholder="🔍 Bien ou propriétaire..." style="padding:5px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px;min-width:180px;background:#fafafa;color:#1a1a1a;font-family:inherit;">
 </div>
 <div class="stats-bar" id="statsBar"></div>
@@ -238,6 +240,7 @@ td.day-cell:hover{filter:brightness(.94);}
     <div class="fg"><label>Tarif / nuit (€)</label><input type="number" id="fRate" placeholder="ex: 120" min="0"/></div>
     <div class="mactions">
       <button class="btn-d" id="delBtn" style="display:none">Supprimer</button>
+      <button class="btn-c" id="dupBtn" style="display:none" title="Dupliquer cette réservation">📋 Dupliquer</button>
       <button class="btn-c" id="checklistBtn" style="display:none">✓ Ménage</button>
       <button class="btn-c" id="cancelBtn">Annuler</button>
       <button class="btn-s" id="saveBtn">Enregistrer</button>
@@ -363,6 +366,19 @@ td.day-cell:hover{filter:brightness(.94);}
 </div>
 
 <!-- SHARE MODAL -->
+<!-- REORDER MODAL -->
+<div class="modal-overlay" id="reorderModal" style="display:none">
+  <div class="modal" style="max-width:420px">
+    <h3>↕ Réorganiser les biens</h3>
+    <p style="font-size:12px;color:#888;margin-bottom:12px">Glissez-déposez pour changer l'ordre. Cliquez ▲▼ pour déplacer.</p>
+    <div id="reorderList" style="max-height:450px;overflow-y:auto;"></div>
+    <div class="mactions">
+      <button class="btn-c" id="reorderCloseBtn">Fermer</button>
+      <button class="btn-s" id="reorderSaveBtn">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <!-- REVENUE MODAL -->
 <div class="modal-overlay" id="revenueModal" style="display:none">
   <div class="modal" style="max-width:620px;max-height:90vh;overflow-y:auto">
@@ -521,6 +537,35 @@ function pd(s){return new Date(s+'T00:00:00');}
 function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
 function getMonday(d){const day=d.getDay(),diff=day===0?-6:1-day;const m=new Date(d);m.setDate(d.getDate()+diff);m.setHours(0,0,0,0);return m;}
 function isToday(d){return d.toDateString()===new Date().toDateString();}
+function isWeekend(d){const day=d.getDay();return day===0||day===6;}
+
+// Jours fériés français
+function getFrenchHolidays(year){
+  // Calcul de Pâques (algorithme de Butcher)
+  const a=year%19,b=Math.floor(year/100),c=year%100;
+  const d2=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
+  const g=Math.floor((b-f+1)/3),h=(19*a+b-d2-g+15)%30;
+  const i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7;
+  const m2=Math.floor((a+11*h+22*l)/451);
+  const month=Math.floor((h+l-7*m2+114)/31);
+  const day2=(h+l-7*m2+114)%31+1;
+  const paques=new Date(year,month-1,day2);
+  const p=(d)=>d.toISOString().slice(0,10);
+  const add=(d,n)=>{const r=new Date(d);r.setDate(r.getDate()+n);return r;};
+  return {
+    [p(new Date(year,0,1))]:'🎆 Jour de l\'An',
+    [p(add(paques,1))]:'🐣 Lundi de Pâques',
+    [p(new Date(year,4,1))]:'🌸 Fête du Travail',
+    [p(new Date(year,4,8))]:'🕊️ Victoire 1945',
+    [p(add(paques,39))]:'✝️ Ascension',
+    [p(add(paques,50))]:'🕊️ Lundi de Pentecôte',
+    [p(new Date(year,6,14))]:'🎇 Fête Nationale',
+    [p(new Date(year,7,15))]:'🙏 Assomption',
+    [p(new Date(year,10,1))]:'🕯️ Toussaint',
+    [p(new Date(year,10,11))]:'🎖️ Armistice',
+    [p(new Date(year,11,25))]:'🎄 Noël',
+  };
+}
 function nightsBetween(s,e){return Math.round((pd(e)-pd(s))/(1000*60*60*24));}
 function textColor(h){const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return(r*299+g*587+b*114)/1000>145?darken(h):'#fff';}
 function darken(h){return'#'+[[1,3],[3,5],[5,7]].map(([a,b])=>Math.max(0,parseInt(h.slice(a,b),16)-90).toString(16).padStart(2,'0')).join('');}
@@ -674,7 +719,11 @@ function getVisibleProps(){
 }
 function getFilteredBookings(){
   const fs=document.getElementById('filterStatus').value;
-  return fs?bookings.filter(b=>b&&b.status===fs):bookings.filter(Boolean);
+  const fp=document.getElementById('filterPlat')?document.getElementById('filterPlat').value:'';
+  let bks=bookings.filter(Boolean);
+  if(fs)bks=bks.filter(b=>b.status===fs);
+  if(fp)bks=bks.filter(b=>(b.platform||'Direct')===fp);
+  return bks;
 }
 function updateFilterSelect(){
   const ft=document.getElementById('filterType').value;
@@ -764,13 +813,23 @@ function render(){
   const visibleProps=getVisibleProps();
   const filteredBks=getFilteredBookings();
   const table=document.getElementById('mainTable');
+  // Jours fériés pour les années concernées
+  const holidays={};
+  const years=[...new Set(days.map(d=>d.getFullYear()))];
+  years.forEach(y=>Object.assign(holidays,getFrenchHolidays(y)));
+
   let html='<thead><tr><th class="prop-th"><span class="bien-header">Biens</span></th>';
   days.forEach(d=>{
     const tod=isToday(d)?' today-col':'';
+    const dStr=ds(d);
+    const holiday=holidays[dStr];
+    const weekend=isWeekend(d)&&!isToday(d);
+    const wkStyle=holiday?'background:#fce8ff;':weekend?'background:#f0f0ff;':'';
+    const holidayEmoji=holiday?`<div style="font-size:9px">${holiday.split(' ')[0]}</div>`:'';
     const lbl=view==='week'
-      ?`<div style="font-weight:700;font-size:12px">${JOURS[(d.getDay()+6)%7]}</div><div style="font-weight:600;font-size:11px">${d.getDate()}/${d.getMonth()+1}</div>`
-      :`<div style="font-weight:700;font-size:12px">${JOURS[(d.getDay()+6)%7]}</div><div style="font-weight:600;font-size:11px">${d.getDate()}</div>`;
-    html+=`<th class="${tod}" style="font-size:10px">${lbl}</th>`;
+      ?`<div style="font-weight:700;font-size:12px">${JOURS[(d.getDay()+6)%7]}</div><div style="font-weight:600;font-size:11px">${d.getDate()}/${d.getMonth()+1}</div>${holidayEmoji}`
+      :`<div style="font-weight:700;font-size:12px">${JOURS[(d.getDay()+6)%7]}</div><div style="font-weight:600;font-size:11px">${d.getDate()}</div>${holidayEmoji}`;
+    html+=`<th class="${tod}" style="font-size:10px;${wkStyle}" title="${holiday||''}">${lbl}</th>`;
   });
   html+='</tr></thead><tbody>';
 
@@ -800,8 +859,15 @@ function render(){
     const ckDone=ckKey&&checklists[ckKey]?checklists[ckKey].tasks.filter(t=>t.done).length:0;
     const ckTotal=ckKey&&checklists[ckKey]?checklists[ckKey].tasks.length:0;
     const ckLabel=ckKey?(ckTotal>0?` ${ckDone}/${ckTotal}`:''):'';
+    // Compteur jours avant prochaine arrivée
+    let nextArrivalBadge='';
+    if(nextBk){
+      const daysUntil=Math.round((new Date(nextBk.start+'T00:00:00')-new Date())/86400000);
+      if(daysUntil===0)nextArrivalBadge='<span style="font-size:9px;background:#22c55e;color:#fff;border-radius:4px;padding:1px 4px;margin-left:2px">Auj.</span>';
+      else if(daysUntil>0)nextArrivalBadge=`<span style="font-size:9px;background:#e8f0fe;color:#1a73e8;border-radius:4px;padding:1px 4px;margin-left:2px">J-${daysUntil}</span>`;
+    }
     html+=`<tr><td class="prop-td" data-mgmt="${propMgmt[prop]||'none'}">
-      <span class="pname" title="${prop}">${prop}</span>${mgmtBadge}${typBadge}
+      <span class="pname" title="${prop}">${prop}</span>${mgmtBadge}${typBadge}${nextArrivalBadge}
       <span class="prop-rate">${occPct}% ce mois</span>
       ${!isReadOnly?`<button class="owner-btn" data-prop="${prop}" title="Fiche propriétaire">${hasOwner?'👤':'👤+'}</button>`:''}
       ${!isReadOnly?`<button class="owner-btn clean-btn" data-prop="${prop}" data-bkid="${nextBk?nextBk.id:''}" title="Check-list ménage prochain séjour">🧹${ckLabel}</button>`:''}
@@ -822,6 +888,9 @@ function render(){
       const here=segs.filter(s=>i>=s.left&&i<=s.right);
       const dayStr=ds(d);
       const cleanHere=cleaningTasks.filter(c=>c&&c.property===prop&&c.date===dayStr);
+      const holiday=holidays[dayStr];
+      const weekend=isWeekend(d)&&!isToday(d);
+      const cellBg=holiday?'background:rgba(252,232,255,0.5);':weekend?'background:rgba(240,240,255,0.5);':'';
       let inner='';
       here.forEach(({b,left,right})=>{
         if(i!==left)return;
@@ -850,7 +919,7 @@ function render(){
         inner+=`<div class="clean-seg" data-cleanid="${c.id}" style="position:absolute;bottom:${bottomOffset}px;left:2px;right:2px;height:13px;background:${col};border-radius:3px;display:flex;align-items:center;justify-content:center;gap:2px;font-size:8px;font-weight:700;color:#fff;cursor:pointer;z-index:${3+ci};" title="${done?'Ménage effectué':'Ménage à faire - '+(c.type==='exterieur'?'Extérieur':'Intérieur')}">🧹 ${label}</div>`;
       });
       if(here.length===0&&cleanHere.length===0)inner=`<div style="width:100%;height:100%" data-add="${prop}|${ds(d)}"></div>`;
-      html+=`<td class="day-cell${tod}" data-prop="${prop}" data-date="${ds(d)}">${inner}</td>`;
+      html+=`<td class="day-cell${tod}" data-prop="${prop}" data-date="${ds(d)}" style="${cellBg}" title="${holiday||''}">${inner}</td>`;
     });
     html+='</tr>';
   });
@@ -901,6 +970,7 @@ function openNew(prop,date){
   editId=null;
   document.getElementById('mTitle').textContent='Nouvelle réservation';
   document.getElementById('delBtn').style.display='none';
+  document.getElementById('dupBtn').style.display='none';
   document.getElementById('checklistBtn').style.display='none';
   document.getElementById('overlapWarn').style.display='none';
   fillPropSelect(prop);
@@ -920,6 +990,7 @@ function openEdit(id){
   editId=id;
   document.getElementById('mTitle').textContent='Modifier la réservation';
   document.getElementById('delBtn').style.display=isReadOnly?'none':'block';
+  document.getElementById('dupBtn').style.display=isReadOnly?'none':'block';
   document.getElementById('checklistBtn').style.display='block';
   document.getElementById('overlapWarn').style.display='none';
   fillPropSelect(b.property);
@@ -954,6 +1025,18 @@ document.getElementById('saveBtn').addEventListener('click',()=>{
 });
 
 document.getElementById('delBtn').addEventListener('click',()=>{if(!confirm('Supprimer ?'))return;bookings=bookings.filter(b=>b&&b.id!==editId);closeModal();render();pushData();saveLocalData();});
+
+document.getElementById('dupBtn').addEventListener('click',()=>{
+  const b=bookings.find(b=>b&&b.id===editId);
+  if(!b)return;
+  const dup={...b,id:nextId++,name:b.name+' (copie)',start:'',end:''};
+  bookings.push(dup);
+  closeModal();
+  // Ouvrir la copie pour modifier les dates
+  setTimeout(()=>openEdit(dup.id),100);
+  showToast('Réservation dupliquée — modifiez les dates');
+  pushData();
+});
 document.getElementById('cancelBtn').addEventListener('click',closeModal);
 document.getElementById('fStart').addEventListener('change',updateNightCount);
 document.getElementById('fEnd').addEventListener('change',updateNightCount);
@@ -1499,6 +1582,70 @@ document.getElementById('serviceSaveBtn').addEventListener('click',()=>{
 
 document.getElementById('exportBtn').addEventListener('click',()=>window.print());
 
+// ─── REORDER BIENS ───────────────────────────────────────────────────────────
+let reorderList=[];
+
+function openReorderModal(){
+  reorderList=[...properties];
+  renderReorderList();
+  document.getElementById('reorderModal').style.display='flex';
+}
+
+function renderReorderList(){
+  const container=document.getElementById('reorderList');
+  container.innerHTML=reorderList.map((p,i)=>`
+    <div data-idx="${i}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:6px;background:#fafafa;border:1px solid #e0e0e0;border-radius:8px;cursor:grab;">
+      <span style="color:#aaa;font-size:16px;cursor:grab">☰</span>
+      <span style="flex:1;font-size:13px;font-weight:500">${p}</span>
+      <button data-up="${i}" style="background:none;border:1px solid #e0e0e0;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:13px" ${i===0?'disabled':''}>▲</button>
+      <button data-down="${i}" style="background:none;border:1px solid #e0e0e0;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:13px" ${i===reorderList.length-1?'disabled':''}>▼</button>
+    </div>`).join('');
+
+  // Boutons ▲▼
+  container.querySelectorAll('[data-up]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const i=parseInt(btn.dataset.up);
+      if(i===0)return;
+      [reorderList[i-1],reorderList[i]]=[reorderList[i],reorderList[i-1]];
+      renderReorderList();
+    });
+  });
+  container.querySelectorAll('[data-down]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const i=parseInt(btn.dataset.down);
+      if(i===reorderList.length-1)return;
+      [reorderList[i],reorderList[i+1]]=[reorderList[i+1],reorderList[i]];
+      renderReorderList();
+    });
+  });
+
+  // Drag & drop
+  let dragIdx=null;
+  container.querySelectorAll('[data-idx]').forEach(el=>{
+    el.setAttribute('draggable','true');
+    el.addEventListener('dragstart',()=>{dragIdx=parseInt(el.dataset.idx);el.style.opacity='0.4';});
+    el.addEventListener('dragend',()=>{el.style.opacity='1';});
+    el.addEventListener('dragover',e=>{e.preventDefault();el.style.background='#e8f0fe';});
+    el.addEventListener('dragleave',()=>{el.style.background='#fafafa';});
+    el.addEventListener('drop',e=>{
+      e.preventDefault();el.style.background='#fafafa';
+      const dropIdx=parseInt(el.dataset.idx);
+      if(dragIdx===null||dragIdx===dropIdx)return;
+      const moved=reorderList.splice(dragIdx,1)[0];
+      reorderList.splice(dropIdx,0,moved);
+      renderReorderList();
+    });
+  });
+}
+
+document.getElementById('reorderBtn').addEventListener('click',openReorderModal);
+document.getElementById('reorderCloseBtn').addEventListener('click',()=>document.getElementById('reorderModal').style.display='none');
+document.getElementById('reorderSaveBtn').addEventListener('click',()=>{
+  properties=reorderList;
+  document.getElementById('reorderModal').style.display='none';
+  render();pushData();showToast('Ordre des biens enregistré ✓');
+});
+
 // ─── OWNERS DIRECTORY ────────────────────────────────────────────────────────
 function renderOwnersList(filter=''){
   const content=document.getElementById('ownersListContent');
@@ -1553,16 +1700,63 @@ document.getElementById('addBookBtn').addEventListener('click',()=>openNew('',''
 function updateTodayBanner(){
   const banner=document.getElementById('todayBanner');
   const today=ds(new Date());
+  const in7=ds(addDays(new Date(),7));
   const arrivals=bookings.filter(b=>b&&b.status!=='blocked'&&b.start===today);
   const departures=bookings.filter(b=>b&&b.status!=='blocked'&&b.end===today);
   const cleanToday=cleaningTasks.filter(c=>c&&c.date===today);
-  if(arrivals.length===0&&departures.length===0&&cleanToday.length===0){banner.style.display='none';return;}
+
+  // Alertes intelligentes
+  const alerts=[];
+
+  // 1. Départ sans ménage programmé dans les 2 prochains jours
+  const allDepartures=bookings.filter(b=>b&&b.status==='confirmed'&&b.end>=today&&b.end<=in7);
+  allDepartures.forEach(b=>{
+    const hasMenage=cleaningTasks.some(c=>c&&c.property===b.property&&c.date>=b.end&&c.date<=ds(addDays(new Date(b.end+'T00:00:00'),2)));
+    if(!hasMenage)alerts.push(`⚠️ <strong>${b.property}</strong> : départ le ${b.end} sans ménage programmé`);
+  });
+
+  // 2. Réservations trop rapprochées (moins de 24h entre départ et arrivée)
+  properties.forEach(prop=>{
+    const propBks=bookings.filter(b=>b&&b.property===prop&&b.status==='confirmed').sort((a,c2)=>a.start.localeCompare(c2.start));
+    for(let i=0;i<propBks.length-1;i++){
+      const gap=Math.round((new Date(propBks[i+1].start+'T00:00:00')-new Date(propBks[i].end+'T00:00:00'))/86400000);
+      if(gap>=0&&gap<1)alerts.push(`⚡ <strong>${prop}</strong> : moins de 24h entre 2 séjours (${propBks[i].end} → ${propBks[i+1].start})`);
+    }
+  });
+
+  // 3. Options posées depuis plus de 7 jours
+  const options=bookings.filter(b=>b&&b.status==='option');
+  options.forEach(b=>{
+    if(b.start&&b.start<in7)alerts.push(`📋 Option non confirmée : <strong>${b.property}</strong> (${b.name||'—'}) arrive le ${b.start}`);
+  });
+
+  // 4. Biens silencieux — aucune réservation confirmée dans les 30 prochains jours
+  const in30=ds(addDays(new Date(),30));
+  properties.forEach(prop=>{
+    const hasUpcoming=bookings.some(b=>b&&b.property===prop&&b.status==='confirmed'&&b.end>=today&&b.start<=in30);
+    if(!hasUpcoming)alerts.push(`😴 <strong>${prop}</strong> : aucune réservation confirmée dans les 30 prochains jours`);
+  });
+
+  const hasContent=arrivals.length>0||departures.length>0||cleanToday.length>0||alerts.length>0;
+  if(!hasContent){banner.style.display='none';return;}
   banner.style.display='flex';
-  let html='<span style="font-size:14px;font-weight:700;color:#1a1a1a">📅 Aujourd\'hui :</span>';
-  if(arrivals.length>0)html+=`<span>✈️ <strong>${arrivals.length}</strong> arrivée${arrivals.length>1?'s':''}</span>`;
-  if(departures.length>0)html+=`<span>🏠 <strong>${departures.length}</strong> départ${departures.length>1?'s':''}</span>`;
-  if(cleanToday.length>0)html+=`<span>🧹 <strong>${cleanToday.length}</strong> ménage${cleanToday.length>1?'s':''} prévu${cleanToday.length>1?'s':''}</span>`;
-  if(arrivals.length>0)html+=`<span style="font-size:11px;color:#555">${arrivals.map(b=>b.property).join(', ')}</span>`;
+  banner.style.flexDirection='column';
+  banner.style.gap='6px';
+
+  let html='';
+  // Ligne du jour
+  if(arrivals.length>0||departures.length>0||cleanToday.length>0){
+    html+=`<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><span style="font-size:13px;font-weight:700;color:#1a1a1a">📅 Aujourd'hui :</span>`;
+    if(arrivals.length>0)html+=`<span>✈️ <strong>${arrivals.length}</strong> arrivée${arrivals.length>1?'s':''}</span>`;
+    if(departures.length>0)html+=`<span>🏠 <strong>${departures.length}</strong> départ${departures.length>1?'s':''}</span>`;
+    if(cleanToday.length>0)html+=`<span>🧹 <strong>${cleanToday.length}</strong> ménage${cleanToday.length>1?'s':''}</span>`;
+    if(arrivals.length>0)html+=`<span style="font-size:11px;color:#555">${arrivals.map(b=>b.property).join(', ')}</span>`;
+    html+='</div>';
+  }
+  // Alertes
+  alerts.forEach(a=>{
+    html+=`<div style="font-size:11px;color:#c62828;background:#fff5f5;border-radius:6px;padding:3px 8px">${a}</div>`;
+  });
   banner.innerHTML=html;
 }
 
@@ -1692,6 +1886,7 @@ function initPropSearch(){
 }
 initPropSearch();
 document.getElementById('filterStatus').addEventListener('change',()=>render());
+document.getElementById('filterPlat').addEventListener('change',()=>render());
 document.getElementById('searchInput').addEventListener('input',()=>render());
 
 // ─── LONG PRESS ──────────────────────────────────────────────────────────────
