@@ -552,7 +552,7 @@ function getFrenchHolidays(year){
   const month=Math.floor((h+l-7*m2+114)/31);
   const day2=(h+l-7*m2+114)%31+1;
   const paques=new Date(year,month-1,day2);
-  const p=(d)=>d.toISOString().slice(0,10);
+  const p=(d)=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${dd}`;};
   const add=(d,n)=>{const r=new Date(d);r.setDate(r.getDate()+n);return r;};
   return {
     [p(new Date(year,0,1))]:'🎆 Jour de l\'An',
