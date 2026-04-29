@@ -1223,14 +1223,21 @@ function renderCleaningList(){
   const content=document.getElementById('cleaningListContent');
   const sorted=[...cleaningTasks].filter(Boolean).sort((a,b)=>a.date.localeCompare(b.date));
   if(sorted.length===0){content.innerHTML='<p style="color:#888;text-align:center;padding:20px">Aucun ménage planifié</p>';return;}
+  const today=ds(new Date());
+  const tomorrow=ds(addDays(new Date(),1));
   content.innerHTML=sorted.map(t=>{
     const done=t.status==='done';
     const col=done?cleanColors.done:(t.type==='exterieur'?cleanColors.exterieur:cleanColors.interieur);
     const typeLabel=t.type==='exterieur'?'🌿 Extérieur':'🏠 Intérieur';
     const statusLabel=done?'✅ Effectué':'🕐 À faire';
-    return `<div style="border-left:4px solid ${col};border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fafafa;cursor:pointer;border-top:1px solid #e0e0e0;border-right:1px solid #e0e0e0;border-bottom:1px solid #e0e0e0;" data-cleanid="${t.id}">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <strong style="font-size:13px">${t.property}</strong>
+    const isToday=!done&&t.date===today;
+    const isTomorrow=!done&&t.date===tomorrow;
+    const urgentBadge=isToday?'<span style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px">🔴 Aujourd\'hui</span>':isTomorrow?'<span style="background:#f59e0b;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px">🟡 Demain</span>':'';
+    const urgentBg=isToday?'#fff5f5':isTomorrow?'#fffbeb':'#fafafa';
+    const urgentBorder=isToday?'#ef4444':isTomorrow?'#f59e0b':col;
+    return `<div style="border-left:4px solid ${urgentBorder};border-radius:8px;padding:10px 12px;margin-bottom:8px;background:${urgentBg};cursor:pointer;border-top:1px solid #e0e0e0;border-right:1px solid #e0e0e0;border-bottom:1px solid #e0e0e0;" data-cleanid="${t.id}">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
+        <div style="display:flex;align-items:center"><strong style="font-size:13px">${t.property}</strong>${urgentBadge}</div>
         <span style="font-size:11px;color:${col};font-weight:600">${statusLabel}</span>
       </div>
       <div style="font-size:11px;color:#fff;background:${col};display:inline-block;padding:1px 6px;border-radius:4px;margin-top:4px">${typeLabel}</div>
