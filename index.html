@@ -533,6 +533,8 @@ if(urlParams.get('readonly')==='1'){
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 function ds(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${dd}`;}
+// Affichage date en format français JJ/MM/AAAA
+function dfr(dateStr){if(!dateStr)return '';const[y,m,d]=dateStr.split('-');return `${d}/${m}/${y}`;}
 function pd(s){return new Date(s+'T00:00:00');}
 function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
 function getMonday(d){const day=d.getDay(),diff=day===0?-6:1-day;const m=new Date(d);m.setDate(d.getDate()+diff);m.setHours(0,0,0,0);return m;}
@@ -1053,7 +1055,7 @@ function openChecklistFromProp(prop, bkid){
   } else {
     currentChecklistKey=`${prop}_${b.start}`;
     if(!checklists[currentChecklistKey]) checklists[currentChecklistKey]={tasks:DEFAULT_TASKS.map(t=>({label:t,done:false}))};
-    document.getElementById('checklistProp').textContent=`${prop} — arrivée le ${b.start}${b.name?' ('+b.name+')':''}`;
+    document.getElementById('checklistProp').textContent=`${prop} — arrivée le ${dfr(b.start)}${b.name?' ('+b.name+')':''}`;
   }
   renderChecklist();
   document.getElementById('checklistModal').style.display='flex';
@@ -1063,7 +1065,7 @@ document.getElementById('checklistBtn').addEventListener('click',()=>{
   const b=bookings.find(x=>x&&x.id===editId);if(!b)return;
   currentChecklistKey=`${b.property}_${b.start}`;
   if(!checklists[currentChecklistKey]) checklists[currentChecklistKey]={tasks:DEFAULT_TASKS.map(t=>({label:t,done:false}))};
-  document.getElementById('checklistProp').textContent=`${b.property} — arrivée ${b.start}`;
+  document.getElementById('checklistProp').textContent=`${b.property} — arrivée ${dfr(b.start)}`;
   renderChecklist();
   closeModal();
   document.getElementById('checklistModal').style.display='flex';
@@ -1242,7 +1244,7 @@ function openOwnerView(prop){
   const tariffs=propTariffs[prop]||[];
   if(tariffs.length>0){
     document.getElementById('ownerViewRate').style.display='flex';
-    document.getElementById('ownerRateText').innerHTML=tariffs.map(t=>`<div style="font-size:11px">${t.from} → ${t.to} : <strong>${t.rate}€/${t.unit}</strong>${t.minStay?' · min '+t.minStay+' '+t.minUnit:''}</div>`).join('');
+    document.getElementById('ownerRateText').innerHTML=tariffs.map(t=>`<div style="font-size:11px">${dfr(t.from)} → ${dfr(t.to)} : <strong>${t.rate}€/${t.unit}</strong>${t.minStay?' · min '+t.minStay+' '+t.minUnit:''}</div>`).join('');
   } else {document.getElementById('ownerViewRate').style.display='none';}
   if(o.giftBox){
     document.getElementById('ownerViewGift').style.display='flex';
@@ -1325,7 +1327,7 @@ function renderCleaningList(){
         <span style="font-size:11px;color:${col};font-weight:600">${statusLabel}</span>
       </div>
       <div style="font-size:11px;color:#fff;background:${col};display:inline-block;padding:1px 6px;border-radius:4px;margin-top:4px">${typeLabel}</div>
-      <div style="font-size:12px;color:#555;margin-top:4px">📅 ${t.date}${t.time?' à '+t.time:''}</div>
+      <div style="font-size:12px;color:#555;margin-top:4px">📅 ${dfr(t.date)}${t.time?' à '+t.time:''}</div>
       ${t.person?`<div style="font-size:12px;color:#555">👤 ${t.person}</div>`:''}
       ${t.notes?`<div style="font-size:12px;color:#888;margin-top:4px">${t.notes}</div>`:''}
     </div>`;
@@ -1493,7 +1495,7 @@ function renderRevenueDashboard(){
         <span style="font-size:13px;font-weight:700;color:#1a73e8">${propTotal}€</span>
       </div>
       ${propRevs.map(r=>`<div style="padding:7px 12px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;font-size:12px">
-        <div style="flex:1"><span style="color:#888;margin-right:6px">${r.date}</span>${SERVICE_LABELS[r.type]||r.type}${r.note?` <span style="color:#aaa;font-size:11px">— ${r.note}</span>`:''}
+        <div style="flex:1"><span style="color:#888;margin-right:6px">${dfr(r.date)}</span>${SERVICE_LABELS[r.type]||r.type}${r.note?` <span style="color:#aaa;font-size:11px">— ${r.note}</span>`:''}
         ${r.auto?'<span style="font-size:9px;color:#aaa;margin-left:4px">auto</span>':''}
         <button data-del="${r.id}" data-auto="${r.auto?'1':''}" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:11px;margin-left:4px" title="Supprimer">✕</button>
         </div>
@@ -1667,7 +1669,7 @@ function renderOwnersList(filter=''){
     const mgmtLabel=mgmt==='totale'?'Totale':mgmt==='partielle'?'Partielle':mgmt==='aucune'?'Sans gest.':'';
     const tariffsHtml=tariffs.length>0?`<div style="margin-top:6px;font-size:11px;color:#555;background:#f0f4ff;border-radius:6px;padding:6px 8px">
       <div style="font-weight:600;margin-bottom:3px;color:#1a73e8">📋 Grille tarifaire</div>
-      ${tariffs.map(t=>`<div>${t.from} → ${t.to} : <strong>${t.rate}€/${t.unit}</strong>${t.minStay?' · min '+t.minStay+' '+t.minUnit:''}</div>`).join('')}
+      ${tariffs.map(t=>`<div>${dfr(t.from)} → ${dfr(t.to)} : <strong>${t.rate}€/${t.unit}</strong>${t.minStay?' · min '+t.minStay+' '+t.minUnit:''}</div>`).join('')}
     </div>`:'';
     return `<div style="border:1px solid #e0e0e0;border-radius:10px;padding:12px;margin-bottom:8px;background:#fafafa;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
@@ -1708,26 +1710,27 @@ function updateTodayBanner(){
   // Alertes intelligentes
   const alerts=[];
 
-  // 1. Départ sans ménage programmé dans les 2 prochains jours
+  // 1. Départ sans ménage programmé — seulement dans les 7 prochains jours
   const allDepartures=bookings.filter(b=>b&&b.status==='confirmed'&&b.end>=today&&b.end<=in7);
   allDepartures.forEach(b=>{
     const hasMenage=cleaningTasks.some(c=>c&&c.property===b.property&&c.date>=b.end&&c.date<=ds(addDays(new Date(b.end+'T00:00:00'),2)));
-    if(!hasMenage)alerts.push(`⚠️ <strong>${b.property}</strong> : départ le ${b.end} sans ménage programmé`);
+    if(!hasMenage)alerts.push(`⚠️ <strong>${b.property}</strong> : départ le ${dfr(b.end)} sans ménage programmé`);
   });
 
-  // 2. Réservations trop rapprochées (moins de 24h entre départ et arrivée)
+  // 2. Réservations trop rapprochées (moins de 24h) — seulement dans les 7 prochains jours
   properties.forEach(prop=>{
     const propBks=bookings.filter(b=>b&&b.property===prop&&b.status==='confirmed').sort((a,c2)=>a.start.localeCompare(c2.start));
     for(let i=0;i<propBks.length-1;i++){
       const gap=Math.round((new Date(propBks[i+1].start+'T00:00:00')-new Date(propBks[i].end+'T00:00:00'))/86400000);
-      if(gap>=0&&gap<1)alerts.push(`⚡ <strong>${prop}</strong> : moins de 24h entre 2 séjours (${propBks[i].end} → ${propBks[i+1].start})`);
+      const endSoon=propBks[i].end>=today&&propBks[i].end<=in7;
+      if(gap>=0&&gap<1&&endSoon)alerts.push(`⚡ <strong>${prop}</strong> : moins de 24h entre 2 séjours (${dfr(propBks[i].end)} → ${dfr(propBks[i+1].start)})`);
     }
   });
 
   // 3. Options posées depuis plus de 7 jours
   const options=bookings.filter(b=>b&&b.status==='option');
   options.forEach(b=>{
-    if(b.start&&b.start<in7)alerts.push(`📋 Option non confirmée : <strong>${b.property}</strong> (${b.name||'—'}) arrive le ${b.start}`);
+    if(b.start&&b.start<in7)alerts.push(`📋 Option non confirmée : <strong>${b.property}</strong> (${b.name||'—'}) arrive le ${dfr(b.start)}`);
   });
 
   // 4. Biens silencieux — discret, juste un compteur cliquable
