@@ -1730,11 +1730,10 @@ function updateTodayBanner(){
     if(b.start&&b.start<in7)alerts.push(`📋 Option non confirmée : <strong>${b.property}</strong> (${b.name||'—'}) arrive le ${b.start}`);
   });
 
-  // 4. Biens silencieux — aucune réservation confirmée dans les 30 prochains jours
+  // 4. Biens silencieux — discret, juste un compteur cliquable
   const in30=ds(addDays(new Date(),30));
-  properties.forEach(prop=>{
-    const hasUpcoming=bookings.some(b=>b&&b.property===prop&&b.status==='confirmed'&&b.end>=today&&b.start<=in30);
-    if(!hasUpcoming)alerts.push(`😴 <strong>${prop}</strong> : aucune réservation confirmée dans les 30 prochains jours`);
+  const silentProps=properties.filter(prop=>{
+    return !bookings.some(b=>b&&b.property===prop&&b.status==='confirmed'&&b.end>=today&&b.start<=in30);
   });
 
   const hasContent=arrivals.length>0||departures.length>0||cleanToday.length>0||alerts.length>0;
@@ -1757,6 +1756,11 @@ function updateTodayBanner(){
   alerts.forEach(a=>{
     html+=`<div style="font-size:11px;color:#c62828;background:#fff5f5;border-radius:6px;padding:3px 8px">${a}</div>`;
   });
+  // Badge biens silencieux discret
+  if(silentProps.length>0){
+    html+=`<div id="silentBadge" style="font-size:11px;color:#888;cursor:pointer;padding:3px 8px;border-radius:6px;background:#f5f5f5;display:inline-flex;align-items:center;gap:4px" onclick="document.getElementById('silentDetail').style.display=document.getElementById('silentDetail').style.display==='none'?'block':'none'">😴 ${silentProps.length} bien${silentProps.length>1?'s':''} sans résa dans 30j ▾</div>
+    <div id="silentDetail" style="display:none;font-size:11px;color:#888;background:#fafafa;border-radius:6px;padding:6px 10px;margin-top:2px">${silentProps.join(' · ')}</div>`;
+  }
   banner.innerHTML=html;
 }
 
