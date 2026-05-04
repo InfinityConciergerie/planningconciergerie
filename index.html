@@ -136,6 +136,7 @@ td.day-cell:hover{filter:brightness(.94);}
   <button class="nav-btn" id="nextBtn">&#8594;</button>
   <button class="icon-btn edit-only" id="addPropBtn">+ Bien</button>
   <button class="icon-btn edit-only" id="reorderBtn">↕ Ordre des biens</button>
+  <button class="icon-btn" id="availBtn">🔍 Disponibilités</button>
   <button class="icon-btn edit-only" id="addBookBtn">+ Réservation</button>
   <button class="icon-btn edit-only" id="addCleanBtn">🧹 Ménage à venir<span id="cleanBadge" style="display:none;background:#ef4444;color:#fff;border-radius:50%;font-size:9px;font-weight:700;padding:1px 5px;margin-left:4px;vertical-align:middle"></span></button>
   <button class="icon-btn" id="ownersListBtn">👥 Propriétaires</button>
@@ -376,6 +377,36 @@ td.day-cell:hover{filter:brightness(.94);}
       <button class="btn-s" id="identityEstelle" style="font-size:15px;padding:12px">Estelle</button>
       <button class="btn-s" id="identityMagali" style="font-size:15px;padding:12px;background:#7c3aed">Magali</button>
     </div>
+  </div>
+</div>
+
+<!-- AVAILABILITY MODAL -->
+<div class="modal-overlay" id="availModal" style="display:none">
+  <div class="modal" style="max-width:560px">
+    <h3>🔍 Recherche de disponibilités</h3>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div class="fg" style="flex:1;min-width:130px">
+        <label>Arrivée</label>
+        <input type="date" id="availStart"/>
+      </div>
+      <div class="fg" style="flex:1;min-width:130px">
+        <label>Départ</label>
+        <input type="date" id="availEnd"/>
+      </div>
+      <div class="fg" style="flex:1;min-width:120px">
+        <label>Type de bien</label>
+        <select id="availType" style="padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;width:100%">
+          <option value="">Tous</option>
+          <option value="appartement">Appartements (AP)</option>
+          <option value="mobilhome">Mobil-homes (MH)</option>
+          <option value="maison">Maisons</option>
+          <option value="studio">Studios</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn-s" id="availSearchBtn" style="width:100%;margin-bottom:12px">Rechercher</button>
+    <div id="availResults"></div>
+    <div class="mactions"><button class="btn-c" id="availCloseBtn">Fermer</button></div>
   </div>
 </div>
 
@@ -1606,6 +1637,72 @@ document.getElementById('serviceSaveBtn').addEventListener('click',()=>{
 });
 
 document.getElementById('exportBtn').addEventListener('click',()=>window.print());
+
+// ─── DISPONIBILITÉS ──────────────────────────────────────────────────────────
+document.getElementById('availBtn').addEventListener('click',()=>{
+  document.getElementById('availStart').value=ds(new Date());
+  document.getElementById('availEnd').value='';
+  document.getElementById('availResults').innerHTML='';
+  document.getElementById('availModal').style.display='flex';
+});
+document.getElementById('availCloseBtn').addEventListener('click',()=>document.getElementById('availModal').style.display='none');
+
+document.getElementById('availSearchBtn').addEventListener('click',()=>{
+  const start=document.getElementById('availStart').value;
+  const end=document.getElementById('availEnd').value;
+  const type=document.getElementById('availType').value;
+  if(!start||!end){showToast('Veuillez saisir une date d\'arrivée et de départ');return;}
+  if(end<=start){showToast('La date de départ doit être après l\'arrivée');return;}
+
+  // Filtrer par type si sélectionné
+  let props=properties;
+  if(type)props=props.filter(p=>propType[p]===type);
+
+  // Trouver les biens disponibles
+  const available=[];
+  const unavailable=[];
+
+  props.forEach(prop=>{
+    const conflict=bookings.some(b=>{
+      if(!b||b.property!==prop)return false;
+      if(b.status==='option')return false; // les options ne bloquent pas
+      // Chevauchement : la réservation existante chevauche la période demandée
+      return b.start<end&&b.end>start;
+    });
+    if(conflict)unavailable.push(prop);
+    else available.push(prop);
+  });
+
+  const nights=Math.round((new Date(end+'T00:00:00')-new Date(start+'T00:00:00'))/86400000);
+  const results=document.getElementById('availResults');
+
+  if(available.length===0){
+    results.innerHTML=`<div style="text-align:center;color:#888;padding:16px">Aucun bien disponible du ${dfr(start)} au ${dfr(end)} (${nights} nuit${nights>1?'s':''})</div>`;
+    return;
+  }
+
+  results.innerHTML=`
+    <div style="font-size:12px;color:#555;margin-bottom:8px">
+      Du <strong>${dfr(start)}</strong> au <strong>${dfr(end)}</strong> — <strong>${nights}</strong> nuit${nights>1?'s':''} :
+    </div>
+    <div style="font-size:12px;font-weight:600;color:#22c55e;margin-bottom:6px">✅ ${available.length} bien${available.length>1?'s':''} disponible${available.length>1?'s':''}</div>
+    ${available.map(p=>{
+      const tariffs=propTariffs[p]||[];
+      // Trouver le tarif applicable sur cette période
+      const applicableTariff=tariffs.find(t=>t.from<=start&&t.to>=end)||tariffs.find(t=>t.from<=start)||null;
+      const tarifInfo=applicableTariff?`<span style="color:#1a73e8;font-weight:600;margin-left:6px">${applicableTariff.rate}€/${applicableTariff.unit}${applicableTariff.minStay?' · min '+applicableTariff.minStay+' '+applicableTariff.minUnit:''}</span>`:'';
+      const typ=propType[p]?`<span class="type-badge" style="font-size:9px">${TYPE_LABELS[propType[p]]||propType[p]}</span>`:'';
+      const mgmt=propMgmt[p]?`<span style="font-size:9px;color:#888"> · ${propMgmt[p]}</span>`:'';
+      return `<div style="padding:8px 10px;margin-bottom:5px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+        <div><strong style="font-size:12px">${p}</strong> ${typ}${mgmt}</div>
+        <div>${tarifInfo}</div>
+      </div>`;
+    }).join('')}
+    ${unavailable.length>0?`
+    <div style="font-size:12px;font-weight:600;color:#ef4444;margin:10px 0 6px">❌ ${unavailable.length} bien${unavailable.length>1?'s':''} non disponible${unavailable.length>1?'s':''}</div>
+    ${unavailable.map(p=>`<div style="padding:6px 10px;margin-bottom:4px;background:#fff5f5;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#888">${p}</div>`).join('')}`:''}
+  `;
+});
 
 // ─── IDENTITÉ UTILISATEUR ────────────────────────────────────────────────────
 function checkUserIdentity(){
