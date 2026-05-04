@@ -238,6 +238,7 @@ td.day-cell:hover{filter:brightness(.94);}
     </div>
     <div class="fg"><label>Notes</label><textarea id="fNotes" placeholder="Infos spéciales, code accès, animaux..."></textarea></div>
     <div class="fg"><label>Tarif / nuit (€)</label><input type="number" id="fRate" placeholder="ex: 120" min="0"/></div>
+    <div id="bookingModifiedBy" style="display:none;font-size:10px;color:#aaa;text-align:right;margin-bottom:4px"></div>
     <div class="mactions">
       <button class="btn-d" id="delBtn" style="display:none">Supprimer</button>
       <button class="btn-c" id="dupBtn" style="display:none" title="Dupliquer cette réservation">📋 Dupliquer</button>
@@ -366,6 +367,18 @@ td.day-cell:hover{filter:brightness(.94);}
 </div>
 
 <!-- SHARE MODAL -->
+<!-- USER IDENTITY MODAL -->
+<div class="modal-overlay" id="identityModal" style="display:none">
+  <div class="modal" style="max-width:320px;text-align:center">
+    <h3 style="margin-bottom:8px">👋 Bonjour, qui êtes-vous ?</h3>
+    <p style="font-size:12px;color:#888;margin-bottom:16px">Votre prénom sera affiché sur les modifications.</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn-s" id="identityEstelle" style="font-size:15px;padding:12px">Estelle</button>
+      <button class="btn-s" id="identityMagali" style="font-size:15px;padding:12px;background:#7c3aed">Magali</button>
+    </div>
+  </div>
+</div>
+
 <!-- REORDER MODAL -->
 <div class="modal-overlay" id="reorderModal" style="display:none">
   <div class="modal" style="max-width:420px">
@@ -466,6 +479,7 @@ td.day-cell:hover{filter:brightness(.94);}
         <option value="done">Effectué</option>
       </select>
     </div>
+    <div id="cleanModifiedBy" style="display:none;font-size:10px;color:#aaa;text-align:right;margin-bottom:4px"></div>
     <div class="mactions">
       <button class="btn-d" id="cleanDeleteBtn" style="display:none">Supprimer</button>
       <button class="btn-c" id="cleanCancelBtn">Annuler</button>
@@ -513,6 +527,7 @@ let cleanColors={interieur:'#f59e0b',exterieur:'#3b82f6',done:'#22c55e'};
 let platColors={Airbnb:'#FF5A5F',Booking:'#003580',Direct:'#22c55e',Autre:'#888888'};
 let properties=[],bookings=[],owners={},propRates={},propTariffs={},propMgmt={},propType={},checklists={},cleaningTasks=[],services=[];
 let nextServiceId=1;
+let currentUser=localStorage.getItem('infinity_user')||null;
 
 // Tarifs fixes Infinity Conciergerie
 const INFINITY_RATES={accueil:70,menage_debut:80,menage_ponctuel:25,nettoyage_ext:210,jardinage:30,travaux:30,deplacement:20,mgmt_pct:15};
@@ -981,6 +996,7 @@ function openNew(prop,date){
   document.getElementById('fStatus').value='confirmed';
   document.getElementById('fNotes').value='';
   document.getElementById('fRate').value=propRates[prop]||'';
+  document.getElementById('bookingModifiedBy').style.display='none';
   document.getElementById('nightCount').style.display='none';
   document.getElementById('bookingModal').style.display='flex';
 }
@@ -1001,6 +1017,10 @@ function openEdit(id){
   document.getElementById('fStatus').value=b.status;
   document.getElementById('fNotes').value=b.notes||'';
   document.getElementById('fRate').value=b.rate||propRates[b.property]||'';
+  const mbDiv=document.getElementById('bookingModifiedBy');
+  const mbText=getModifiedByText(b);
+  if(mbText){mbDiv.style.display='block';mbDiv.textContent=`✏️ Modifié par ${mbText}`;}
+  else mbDiv.style.display='none';
   updateNightCount();
   document.getElementById('bookingModal').style.display='flex';
   if(isReadOnly){document.getElementById('saveBtn').style.display='none';document.getElementById('delBtn').style.display='none';}
@@ -1019,8 +1039,8 @@ document.getElementById('saveBtn').addEventListener('click',()=>{
   if(!start||!end){alert('Dates obligatoires.');return;}
   if(start>=end){alert('Le départ doit être après l\'arrivée.');return;}
   if(checkOverlap(prop,start,end,editId)&&!confirm('Ce bien est déjà réservé sur cette période. Continuer quand même ?'))return;
-  if(editId!=null){const idx=bookings.findIndex(x=>x&&x.id===editId);if(idx!==-1)bookings[idx]={...bookings[idx],property:prop,name,start,end,platform,status,notes,rate};}
-  else bookings.push({id:nextId++,property:prop,name,start,end,platform,status,notes,rate});
+  if(editId!=null){const idx=bookings.findIndex(x=>x&&x.id===editId);if(idx!==-1)bookings[idx]=stampModification({...bookings[idx],property:prop,name,start,end,platform,status,notes,rate});}
+  else bookings.push(stampModification({id:nextId++,property:prop,name,start,end,platform,status,notes,rate}));
   closeModal();render();pushData();saveLocalData();
 });
 
@@ -1343,6 +1363,7 @@ function openCleaningNew(){
   document.getElementById('fCleanNotes').value='';
   document.getElementById('fCleanStatus').value='todo';
   document.getElementById('cleanDeleteBtn').style.display='none';
+  document.getElementById('cleanModifiedBy').style.display='none';
   document.getElementById('cleaningModal').style.display='flex';
 }
 function openCleaningEdit(id){
@@ -1358,6 +1379,10 @@ function openCleaningEdit(id){
   document.getElementById('fCleanNotes').value=t.notes||'';
   document.getElementById('fCleanStatus').value=t.status||'todo';
   document.getElementById('cleanDeleteBtn').style.display='inline-block';
+  const cmbDiv=document.getElementById('cleanModifiedBy');
+  const cmbText=getModifiedByText(t);
+  if(cmbText){cmbDiv.style.display='block';cmbDiv.textContent=`✏️ Modifié par ${cmbText}`;}
+  else cmbDiv.style.display='none';
   document.getElementById('cleaningModal').style.display='flex';
 }
 document.getElementById('addCleanBtn').addEventListener('click',openCleaningList);
@@ -1369,7 +1394,7 @@ document.getElementById('cleanSaveBtn').addEventListener('click',()=>{
   const date=document.getElementById('fCleanDate').value;
   if(!prop||!date){showToast('Bien et date requis');return;}
   const id=currentCleanId!==null?parseInt(currentCleanId):nextCleanId++;
-  const task={id,property:prop,type:document.getElementById('fCleanType').value,date,time:document.getElementById('fCleanTime').value,person:document.getElementById('fCleanPerson').value,notes:document.getElementById('fCleanNotes').value,status:document.getElementById('fCleanStatus').value};
+  const task=stampModification({id,property:prop,type:document.getElementById('fCleanType').value,date,time:document.getElementById('fCleanTime').value,person:document.getElementById('fCleanPerson').value,notes:document.getElementById('fCleanNotes').value,status:document.getElementById('fCleanStatus').value});
   if(currentCleanId!==null){cleaningTasks=cleaningTasks.map(c=>c&&parseInt(c.id)===parseInt(currentCleanId)?task:c);}
   else{cleaningTasks.push(task);}
   document.getElementById('cleaningModal').style.display='none';
@@ -1581,6 +1606,31 @@ document.getElementById('serviceSaveBtn').addEventListener('click',()=>{
 });
 
 document.getElementById('exportBtn').addEventListener('click',()=>window.print());
+
+// ─── IDENTITÉ UTILISATEUR ────────────────────────────────────────────────────
+function checkUserIdentity(){
+  if(isReadOnly)return;
+  if(!currentUser){
+    document.getElementById('identityModal').style.display='flex';
+  }
+}
+function setUser(name){
+  currentUser=name;
+  localStorage.setItem('infinity_user',name);
+  document.getElementById('identityModal').style.display='none';
+}
+document.getElementById('identityEstelle').addEventListener('click',()=>setUser('Estelle'));
+document.getElementById('identityMagali').addEventListener('click',()=>setUser('Magali'));
+
+function getModifiedByText(obj){
+  if(!obj||!obj.modifiedBy)return null;
+  return `${obj.modifiedBy} · ${obj.modifiedAt||''}`;
+}
+function stampModification(obj){
+  if(!currentUser)return obj;
+  const now=new Date();
+  return {...obj,modifiedBy:currentUser,modifiedAt:`${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}h${String(now.getMinutes()).padStart(2,'0')}`};
+}
 
 // ─── REORDER BIENS ───────────────────────────────────────────────────────────
 let reorderList=[];
@@ -1915,6 +1965,7 @@ if(isReadOnly){
   }
 } else {
   checkExistingConfig();
+  setTimeout(checkUserIdentity, 1500);
 }
 </script>
 </body>
