@@ -204,6 +204,7 @@ td.day-cell:hover{filter:brightness(.94);}
   <select class="filter-select" id="filterStatus"><option value="">Tous statuts</option><option value="confirmed">Confirmé</option><option value="option">Option</option><option value="blocked">Bloqué</option></select>
   <select class="filter-select" id="filterPlat"><option value="">Toutes plateformes</option><option value="Direct">Direct</option><option value="Airbnb">Airbnb</option><option value="Booking">Booking</option><option value="Autre">Autre</option></select>
   <input type="text" id="searchInput" placeholder="🔍 Bien ou propriétaire..." style="padding:5px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px;min-width:180px;background:#fafafa;color:#1a1a1a;font-family:inherit;">
+  <input type="text" id="searchClient" placeholder="👤 Nom du locataire..." style="padding:5px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px;min-width:180px;background:#fafafa;color:#1a1a1a;font-family:inherit;">
 </div>
 <div class="stats-bar" id="statsBar"></div>
 <div id="todayBanner" style="display:none;background:linear-gradient(135deg,#e8f5e9,#e3f2fd);border:1px solid #c8e6c9;border-radius:10px;padding:10px 16px;margin-bottom:.75rem;gap:16px;flex-wrap:wrap;align-items:center;font-size:13px;font-weight:500;"></div>
@@ -787,9 +788,11 @@ function getVisibleProps(){
 function getFilteredBookings(){
   const fs=document.getElementById('filterStatus').value;
   const fp=document.getElementById('filterPlat')?document.getElementById('filterPlat').value:'';
+  const fc=(document.getElementById('searchClient')||{}).value||'';
   let bks=bookings.filter(Boolean);
   if(fs)bks=bks.filter(b=>b.status===fs);
   if(fp)bks=bks.filter(b=>(b.platform||'Direct')===fp);
+  if(fc.trim())bks=bks.filter(b=>b.name&&b.name.toLowerCase().includes(fc.trim().toLowerCase()));
   return bks;
 }
 function updateFilterSelect(){
@@ -2057,6 +2060,7 @@ function initPropSearch(){
 initPropSearch();
 document.getElementById('filterStatus').addEventListener('change',()=>render());
 document.getElementById('filterPlat').addEventListener('change',()=>render());
+document.getElementById('searchClient').addEventListener('input',()=>render());
 document.getElementById('searchInput').addEventListener('input',()=>render());
 
 // ─── LONG PRESS ──────────────────────────────────────────────────────────────
