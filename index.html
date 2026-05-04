@@ -204,7 +204,10 @@ td.day-cell:hover{filter:brightness(.94);}
   <select class="filter-select" id="filterStatus"><option value="">Tous statuts</option><option value="confirmed">Confirmé</option><option value="option">Option</option><option value="blocked">Bloqué</option></select>
   <select class="filter-select" id="filterPlat"><option value="">Toutes plateformes</option><option value="Direct">Direct</option><option value="Airbnb">Airbnb</option><option value="Booking">Booking</option><option value="Autre">Autre</option></select>
   <input type="text" id="searchInput" placeholder="🔍 Bien ou propriétaire..." style="padding:5px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px;min-width:180px;background:#fafafa;color:#1a1a1a;font-family:inherit;">
-  <input type="text" id="searchClient" placeholder="👤 Nom du locataire..." style="padding:5px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px;min-width:180px;background:#fafafa;color:#1a1a1a;font-family:inherit;">
+  <div style="position:relative;display:inline-block">
+    <input type="text" id="searchClient" placeholder="👤 Nom du locataire..." style="padding:5px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px;min-width:180px;background:#fafafa;color:#1a1a1a;font-family:inherit;" autocomplete="off">
+    <div id="searchClientDropdown" style="display:none;position:absolute;top:100%;left:0;min-width:260px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:100;max-height:220px;overflow-y:auto;margin-top:2px;"></div>
+  </div>
 </div>
 <div class="stats-bar" id="statsBar"></div>
 <div id="todayBanner" style="display:none;background:linear-gradient(135deg,#e8f5e9,#e3f2fd);border:1px solid #c8e6c9;border-radius:10px;padding:10px 16px;margin-bottom:.75rem;gap:16px;flex-wrap:wrap;align-items:center;font-size:13px;font-weight:500;"></div>
@@ -792,7 +795,12 @@ function getFilteredBookings(){
   let bks=bookings.filter(Boolean);
   if(fs)bks=bks.filter(b=>b.status===fs);
   if(fp)bks=bks.filter(b=>(b.platform||'Direct')===fp);
-  if(fc.trim())bks=bks.filter(b=>b.name&&b.name.toLowerCase().includes(fc.trim().toLowerCase()));
+  if(clientFilterBookingId){
+    // Mode sélection précise : ne montrer que cette réservation
+    bks=bks.filter(b=>b.id===clientFilterBookingId);
+  } else if(fc.trim()){
+    bks=bks.filter(b=>b.name&&b.name.toLowerCase().includes(fc.trim().toLowerCase()));
+  }
   return bks;
 }
 function updateFilterSelect(){
@@ -2060,7 +2068,94 @@ function initPropSearch(){
 initPropSearch();
 document.getElementById('filterStatus').addEventListener('change',()=>render());
 document.getElementById('filterPlat').addEventListener('change',()=>render());
-document.getElementById('searchClient').addEventListener('input',()=>render());
+
+// ─── RECHERCHE LOCATAIRE ──────────────────────────────────────────────────────
+let clientFilterBookingId=null;
+
+function initClientSearch(){
+  const input=document.getElementById('searchClient');
+  const dropdown=document.getElementById('searchClientDropdown');
+
+  function getMatches(q){
+    if(!q)return[];
+    const ql=q.toLowerCase();
+    // Trouver toutes les réservations dont le nom correspond
+    const seen=new Set();
+    return bookings.filter(Boolean).filter(b=>{
+      if(!b.name||!b.name.toLowerCase().includes(ql))return false;
+      if(seen.has(b.id))return false;
+      seen.add(b.id);
+      return true;
+    }).sort((a,b2)=>a.start.localeCompare(b2.start));
+  }
+
+  function showDropdown(matches){
+    if(matches.length===0){
+      dropdown.innerHTML='<div style="padding:8px 12px;font-size:12px;color:#aaa">Aucun résultat</div>';
+      dropdown.style.display='block';
+      return;
+    }
+    dropdown.innerHTML=
+      '<div style="padding:5px 12px;font-size:11px;color:#888;cursor:pointer;border-bottom:1px solid #f0f0f0" data-clear="1">✕ Effacer la recherche</div>'+
+      matches.map(b=>`
+        <div data-bid="${b.id}" style="padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-weight:600">${b.name}</div>
+            <div style="font-size:11px;color:#888">${b.property} · ${dfr(b.start)} → ${dfr(b.end)}</div>
+          </div>
+          <div style="font-size:10px;color:#fff;background:${b.status==='confirmed'?'#22c55e':b.status==='option'?'#f59e0b':'#9ca3af'};border-radius:4px;padding:2px 5px">${b.status==='confirmed'?'Conf.':b.status==='option'?'Option':'Bloqué'}</div>
+        </div>`).join('');
+    dropdown.style.display='block';
+
+    // Clic sur effacer
+    dropdown.querySelector('[data-clear]')?.addEventListener('mousedown',e=>{
+      e.preventDefault();
+      input.value='';
+      clientFilterBookingId=null;
+      dropdown.style.display='none';
+      render();
+    });
+
+    // Clic sur une réservation
+    dropdown.querySelectorAll('[data-bid]').forEach(el=>{
+      el.addEventListener('mousedown',e=>{
+        e.preventDefault();
+        const bid=parseInt(el.dataset.bid);
+        const b=bookings.find(b=>b&&b.id===bid);
+        if(!b)return;
+        input.value=b.name;
+        clientFilterBookingId=bid;
+        dropdown.style.display='none';
+        // Naviguer vers la période de la réservation
+        const startDate=new Date(b.start+'T00:00:00');
+        if(view==='week'){pivot=getMonday(startDate);}
+        else{pivot=new Date(startDate.getFullYear(),startDate.getMonth(),1);}
+        render();
+        // Highlight la réservation
+        setTimeout(()=>{
+          const seg=document.querySelector(`.seg[data-id="${bid}"]`);
+          if(seg){seg.style.outline='3px solid #ff0';seg.style.outlineOffset='2px';setTimeout(()=>{seg.style.outline='';seg.style.outlineOffset='';},2000);}
+        },200);
+      });
+    });
+  }
+
+  input.addEventListener('input',()=>{
+    clientFilterBookingId=null;
+    const q=input.value.trim();
+    if(!q){dropdown.style.display='none';render();return;}
+    showDropdown(getMatches(q));
+    render();
+  });
+
+  input.addEventListener('focus',()=>{
+    const q=input.value.trim();
+    if(q)showDropdown(getMatches(q));
+  });
+
+  input.addEventListener('blur',()=>setTimeout(()=>dropdown.style.display='none',150));
+}
+initClientSearch();
 document.getElementById('searchInput').addEventListener('input',()=>render());
 
 // ─── LONG PRESS ──────────────────────────────────────────────────────────────
