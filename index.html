@@ -684,20 +684,39 @@ function pushData(){
   const propTypeArr=properties.map(p=>propType[p]||'');
   const propMgmtArr=properties.map(p=>propMgmt[p]||'');
   const propRatesArr=properties.map(p=>propRates[p]||0);
-  const propTariffsArr=properties.map(p=>propTariffs[p]||[]);
+  const propTariffsArr=properties.map(p=>{
+    const t=propTariffs[p]||[];
+    return t.map(({from,to,rate,unit,minStay,minUnit})=>({from,to,rate,unit,minStay:minStay||'',minUnit:minUnit||'nuits'}));
+  });
   const ownersArr=properties.map(p=>{
     const o=owners[p];
     if(!o)return null;
-    // Nettoyer les champs vides pour éviter les erreurs Firebase
     const clean={};
     if(o.name)clean.name=o.name;
     if(o.phone)clean.phone=o.phone;
     if(o.email)clean.email=o.email;
     if(o.note)clean.note=o.note;
     if(o.giftBox)clean.giftBox=o.giftBox;
+    if(o.cleanRate)clean.cleanRate=o.cleanRate;
+    if(o.mgmtPct)clean.mgmtPct=o.mgmtPct;
     return Object.keys(clean).length>0?clean:null;
   });
-  db.ref('planning').set({properties,bookings,nextId,ownersArr,propRatesArr,propMgmtArr,propTypeArr,propTariffsArr,checklists,cleaningTasks,nextCleanId,services,nextServiceId,settings:{themeId:activeTheme.id,colors,mgmtColors,cleanColors,platColors,bgOpacity},updatedAt:Date.now()})
+  // Nettoyer les services pour éviter les objets trop complexes
+  const cleanServices=services.filter(Boolean).map(s=>({
+    id:s.id,property:s.property||'',type:s.type||'',amount:s.amount||0,
+    date:s.date||'',note:s.note||'',
+    ...(s.overrideId?{overrideId:s.overrideId,overridden:true}:{}),
+    ...(s.hideId?{hideId:s.hideId,hidden:true}:{})
+  }));
+  // Nettoyer les bookings pour éviter les champs undefined
+  const cleanBookings=bookings.filter(Boolean).map(b=>({
+    id:b.id,property:b.property||'',name:b.name||'',
+    start:b.start||'',end:b.end||'',
+    platform:b.platform||'',status:b.status||'confirmed',
+    notes:b.notes||'',rate:b.rate||0,
+    ...(b.modifiedBy?{modifiedBy:b.modifiedBy,modifiedAt:b.modifiedAt||''}:{})
+  }));
+  db.ref('planning').set({properties,bookings:cleanBookings,nextId,ownersArr,propRatesArr,propMgmtArr,propTypeArr,propTariffsArr,checklists,cleaningTasks,nextCleanId,services:cleanServices,nextServiceId,settings:{themeId:activeTheme.id,colors,mgmtColors,cleanColors,platColors,bgOpacity},updatedAt:Date.now()})
     .then(()=>setSyncStatus('online','Synchronisé')).catch(e=>setSyncStatus('error',e.message));
 }
 
