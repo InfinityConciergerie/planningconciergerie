@@ -295,6 +295,7 @@ td.day-cell:hover{filter:brightness(.94);}
         <option value="aucune">Pas de gestion</option>
       </select>
     </div>
+    <div class="fg"><label>Capacité 👥 (nombre de personnes)</label><input type="number" id="fPropCapacity" placeholder="ex: 4" min="1" max="20"/></div>
     <div class="mactions">
       <button class="btn-d" id="pDelBtn" style="display:none">Supprimer le bien</button>
       <button class="btn-c" id="pCancelBtn">Annuler</button>
@@ -560,7 +561,7 @@ let colors={confirmed:'#1a73e8',option:'#f59e0b',blocked:'#9ca3af'};
 let mgmtColors={totale:'#e8f5e9',partielle:'#fff8e1',aucune:'#fce8e8',none:'#f5f5f5'};
 let cleanColors={interieur:'#f59e0b',exterieur:'#3b82f6',done:'#22c55e'};
 let platColors={Airbnb:'#FF5A5F',Booking:'#003580',Direct:'#22c55e',Autre:'#888888'};
-let properties=[],bookings=[],owners={},propRates={},propTariffs={},propMgmt={},propType={},checklists={},cleaningTasks=[],services=[];
+let properties=[],bookings=[],owners={},propRates={},propTariffs={},propMgmt={},propType={},propCapacity={},checklists={},cleaningTasks=[],services=[];
 let nextServiceId=1;
 let currentUser=localStorage.getItem('infinity_user')||null;
 
@@ -659,6 +660,7 @@ function initFirebase(url){
         if(data.propMinStayArr&&properties){const propMinStay={};properties.forEach((p,i)=>{if(data.propMinStayArr[i])propMinStay[p]=data.propMinStayArr[i];});}
         if(data.propMinStayUnitArr&&properties){const propMinStayUnit={};properties.forEach((p,i)=>{if(data.propMinStayUnitArr[i])propMinStayUnit[p]=data.propMinStayUnitArr[i];});}
         if(data.propTariffsArr&&properties){propTariffs={};properties.forEach((p,i)=>{if(data.propTariffsArr[i])propTariffs[p]=data.propTariffsArr[i];});}
+        if(data.propCapacityArr&&properties){propCapacity={};properties.forEach((p,i)=>{if(data.propCapacityArr[i])propCapacity[p]=data.propCapacityArr[i];});}
         const s=data.settings||{};
         if(s.themeId) activeTheme=THEMES.find(t=>t.id===s.themeId)||THEMES[0];
         if(s.colors) colors=s.colors;
@@ -687,6 +689,7 @@ function pushData(){
   // Stocker propType et propMgmt comme tableaux indexés sur properties pour éviter les problèmes de clés Firebase
   const propTypeArr=properties.map(p=>propType[p]||'');
   const propMgmtArr=properties.map(p=>propMgmt[p]||'');
+  const propCapacityArr=properties.map(p=>propCapacity[p]||0);
   const propRatesArr=properties.map(p=>propRates[p]||0);
   const propTariffsArr=properties.map(p=>{
     const t=propTariffs[p]||[];
@@ -720,7 +723,7 @@ function pushData(){
     notes:b.notes||'',rate:b.rate||0,
     ...(b.modifiedBy?{modifiedBy:b.modifiedBy,modifiedAt:b.modifiedAt||''}:{})
   }));
-  db.ref('planning').set({properties,bookings:cleanBookings,nextId,ownersArr,propRatesArr,propMgmtArr,propTypeArr,propTariffsArr,checklists,cleaningTasks,nextCleanId,services:cleanServices,nextServiceId,settings:{themeId:activeTheme.id,colors,mgmtColors,cleanColors,platColors,bgOpacity},updatedAt:Date.now()})
+  db.ref('planning').set({properties,bookings:cleanBookings,nextId,ownersArr,propRatesArr,propMgmtArr,propTypeArr,propTariffsArr,propCapacityArr,checklists,cleaningTasks,nextCleanId,services:cleanServices,nextServiceId,settings:{themeId:activeTheme.id,colors,mgmtColors,cleanColors,platColors,bgOpacity},updatedAt:Date.now()})
     .then(()=>setSyncStatus('online','Synchronisé')).catch(e=>setSyncStatus('error',e.message));
 }
 
@@ -930,6 +933,7 @@ function render(){
     const mgmtBadge=mgmt==='totale'?'<span class="mgmt-badge mgmt-totale">Totale</span>':mgmt==='partielle'?'<span class="mgmt-badge mgmt-partielle">Partielle</span>':mgmt==='aucune'?'<span class="mgmt-badge mgmt-aucune">Sans gest.</span>':'';
     const typ=propType[prop]||'';
     const typBadge=typ?`<span class="type-badge">${TYPE_LABELS[typ]||typ}</span>`:'';
+    const capBadge=propCapacity[prop]?`<span style="font-size:9px;color:#888;margin-left:3px">👥${propCapacity[prop]}</span>`:'';
     // Trouver prochain séjour pour check-list
     const today=ds(new Date());
     const nextBk=bookings.filter(b=>b&&b.property===prop&&b.status!=='blocked'&&b.end>today).sort((a,b)=>a.start.localeCompare(b.start))[0];
@@ -945,7 +949,7 @@ function render(){
       else if(daysUntil>0)nextArrivalBadge=`<span style="font-size:9px;background:#e8f0fe;color:#1a73e8;border-radius:4px;padding:1px 4px;margin-left:2px">J-${daysUntil}</span>`;
     }
     html+=`<tr><td class="prop-td" data-mgmt="${propMgmt[prop]||'none'}">
-      <span class="pname" title="${prop}">${prop}</span>${mgmtBadge}${typBadge}${nextArrivalBadge}
+      <span class="pname" title="${prop}">${prop}</span>${mgmtBadge}${typBadge}${capBadge}${nextArrivalBadge}
       <span class="prop-rate">${occPct}% ce mois</span>
       ${!isReadOnly?`<button class="owner-btn" data-prop="${prop}" title="Fiche propriétaire">${hasOwner?'👤':'👤+'}</button>`:''}
       ${!isReadOnly?`<button class="owner-btn clean-btn" data-prop="${prop}" data-bkid="${nextBk?nextBk.id:''}" title="Check-list ménage prochain séjour">🧹${ckLabel}</button>`:''}
@@ -983,8 +987,9 @@ function render(){
         const nights=nightsBetween(b.start,b.end);
         const rr=span<days.length?'0px':'2px';
         const hasNote=b.notes&&b.notes.trim();
+        const hasGift=(owners[b.property]||{}).giftBox==='oui';
         inner+=`<div class="seg" data-id="${b.id}" style="left:2px;width:calc(${span*100}% - 4px);border-radius:3px ${rr} ${rr} 3px;background:${col};color:${tc};">
-          <div class="seg-inner">${isArr?'▶ ':''}${label}${platLabel}${hasNote?' 📝':''}${isDep?' ◀':''}<span class="night-badge">${nights}n</span></div>
+          <div class="seg-inner">${isArr?'▶ ':''}${label}${platLabel}${hasNote?' 📝':''}${hasGift?' 🎁':''}${isDep?' ◀':''}<span class="night-badge">${nights}n</span></div>
         </div>`;
       });
       cleanHere.forEach((c,ci)=>{
@@ -1242,6 +1247,7 @@ function openPropModal(prop=null){
   document.getElementById('fPropName').value=prop||'';
   document.getElementById('fPropType').value=prop&&propType[prop]?propType[prop]:'';
   document.getElementById('fPropMgmt').value=prop&&propMgmt[prop]?propMgmt[prop]:'';
+  document.getElementById('fPropCapacity').value=prop&&propCapacity[prop]?propCapacity[prop]:'';
   document.getElementById('pDelBtn').style.display=prop?'block':'none';
   renderTariffGrid();
   document.getElementById('propModal').style.display='flex';
@@ -1270,6 +1276,7 @@ document.getElementById('pSaveBtn').addEventListener('click',()=>{
   const newName=document.getElementById('fPropName').value.trim();
   const mgmt=document.getElementById('fPropMgmt').value;
   const typ=document.getElementById('fPropType').value;
+  const cap=parseInt(document.getElementById('fPropCapacity').value)||0;
   if(!newName)return;
   // Lire les valeurs finales de la grille
   document.getElementById('tariffGrid').querySelectorAll('input,select').forEach(el=>{
@@ -1291,11 +1298,13 @@ document.getElementById('pSaveBtn').addEventListener('click',()=>{
     propTariffs[newName]=validTariffs;
     if(mgmt)propMgmt[newName]=mgmt; else delete propMgmt[newName];
     if(typ)propType[newName]=typ; else delete propType[newName];
+    if(cap)propCapacity[newName]=cap; else delete propCapacity[newName];
   } else {
     if(!properties.includes(newName))properties.push(newName);
     propTariffs[newName]=validTariffs;
     if(mgmt)propMgmt[newName]=mgmt; else delete propMgmt[newName];
     if(typ)propType[newName]=typ; else delete propType[newName];
+    if(cap)propCapacity[newName]=cap; else delete propCapacity[newName];
   }
   properties.sort((a,b)=>{
     const prefA=a.match(/^[A-Z]+/i)?a.match(/^[A-Z]+/i)[0].toUpperCase():'';
