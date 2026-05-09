@@ -73,7 +73,7 @@ td.prop-td{padding:0 4px 0 6px;font-size:10px;font-weight:500;color:#1a1a1a;bord
 .owner-btn:hover{background:#e8f0fe;}
 .del-prop{background:none;border:none;cursor:pointer;color:#ccc;font-size:10px;margin-left:2px;vertical-align:middle;}
 .del-prop:hover{color:#e53935;}
-td.day-cell{min-width:36px;cursor:pointer;position:relative;border-right:1px dotted rgba(0,0,0,0.08);}
+td.day-cell{min-width:36px;cursor:pointer;position:relative;border-right:1px dotted rgba(0,0,0,0.18);}
 td.day-cell:hover{filter:brightness(.94);}
 .seg{position:absolute;top:5px;bottom:5px;display:flex;align-items:center;overflow:hidden;z-index:2;cursor:pointer;transition:filter .15s;}
 .seg:hover{filter:brightness(.85);}
@@ -232,8 +232,8 @@ td.day-cell:hover{filter:brightness(.94);}
     <div class="overlap-warning" id="overlapWarn">⚠️ Ce bien est déjà réservé sur cette période !</div>
     <div class="fg"><label>Bien</label><select id="fProp"></select></div>
     <div class="fg"><label>Locataire</label><input type="text" id="fName" placeholder="Nom du locataire"/></div>
-    <div class="fg"><label>Arrivée</label><input type="date" id="fStart"/></div>
-    <div class="fg"><label>Départ</label><input type="date" id="fEnd"/></div>
+    <div class="fg"><label>Arrivée</label><input type="date" id="fStart"/><span id="fStartDay" style="font-size:11px;color:#1a73e8;font-weight:600;margin-left:6px"></span></div>
+    <div class="fg"><label>Départ</label><input type="date" id="fEnd"/><span id="fEndDay" style="font-size:11px;color:#1a73e8;font-weight:600;margin-left:6px"></span></div>
     <div id="nightCount" style="font-size:12px;color:#1a73e8;margin-bottom:8px;font-weight:500;display:none"></div>
     <div class="fg"><label>Plateforme</label>
       <select id="fPlat"><option value="">— Aucune —</option><option>Airbnb</option><option>Booking</option><option>Direct</option><option>Autre</option></select>
@@ -975,7 +975,11 @@ function render(){
       const cellBg=holiday?'background:rgba(252,232,255,0.5);':weekend?'background:rgba(240,240,255,0.5);':'';
       let inner='';
       here.forEach(({b,left,right})=>{
-        if(i!==left)return;
+        if(i!==left){
+          // Cellule de continuation — ajouter un lien cliquable invisible
+          inner+=`<div class="seg-cont" data-id="${b.id}" style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;cursor:pointer;"></div>`;
+          return;
+        }
         const span=right-left+1;
         // Couleur selon plateforme si confirmé, sinon couleur statut
         const col=b.status==='blocked'?colors.blocked:(b.status==='option'?colors.option:(b.platform&&platColors[b.platform]?platColors[b.platform]:colors.confirmed));
@@ -1008,6 +1012,7 @@ function render(){
   table.innerHTML=html;
 
   table.querySelectorAll('.seg').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();openEdit(parseInt(el.dataset.id));}));
+  table.querySelectorAll('.seg-cont').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();openEdit(parseInt(el.dataset.id));}));
   table.querySelectorAll('.clean-seg').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();openCleaningEdit(parseInt(el.dataset.cleanid));}));
   table.querySelectorAll('[data-add]').forEach(el=>el.addEventListener('click',e=>{if(isReadOnly)return;e.stopPropagation();const[p,d]=el.dataset.add.split('|');openNew(p,d);}));
   table.querySelectorAll('.owner-btn:not(.clean-btn)').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();openOwnerView(el.dataset.prop);}));
@@ -1058,6 +1063,7 @@ function openNew(prop,date){
   document.getElementById('fName').value='';
   document.getElementById('fStart').value=date||'';
   document.getElementById('fEnd').value=date?ds(addDays(pd(date),1)):'';
+  updateDateDayLabels();
   document.getElementById('fPlat').value='';
   document.getElementById('fStatus').value='confirmed';
   document.getElementById('fNotes').value='';
@@ -1079,6 +1085,7 @@ function openEdit(id){
   document.getElementById('fName').value=b.name||'';
   document.getElementById('fStart').value=b.start;
   document.getElementById('fEnd').value=b.end;
+  updateDateDayLabels();
   document.getElementById('fPlat').value=b.platform||'';
   document.getElementById('fStatus').value=b.status;
   document.getElementById('fNotes').value=b.notes||'';
@@ -1123,6 +1130,20 @@ document.getElementById('dupBtn').addEventListener('click',()=>{
   showToast('Réservation dupliquée — modifiez les dates');
   pushData();
 });
+function updateDateDayLabels(){
+  const JOURS_FULL=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const s=document.getElementById('fStart').value;
+  const e=document.getElementById('fEnd').value;
+  const sd=document.getElementById('fStartDay');
+  const ed=document.getElementById('fEndDay');
+  if(s&&sd){const d=new Date(s+'T00:00:00');sd.textContent=JOURS_FULL[d.getDay()];}
+  else if(sd)sd.textContent='';
+  if(e&&ed){const d=new Date(e+'T00:00:00');ed.textContent=JOURS_FULL[d.getDay()];}
+  else if(ed)ed.textContent='';
+}
+document.getElementById('fStart').addEventListener('change',updateDateDayLabels);
+document.getElementById('fEnd').addEventListener('change',updateDateDayLabels);
+
 document.getElementById('cancelBtn').addEventListener('click',closeModal);
 document.getElementById('fStart').addEventListener('change',updateNightCount);
 document.getElementById('fEnd').addEventListener('change',updateNightCount);
