@@ -111,7 +111,58 @@ td.day-cell:hover{filter:brightness(.94);}
 .share-box{background:#f8faff;border:1px solid #d0e3ff;border-radius:8px;padding:10px;margin-top:10px;}
 .share-url{width:100%;padding:7px 10px;border:1px solid #e0e0e0;border-radius:6px;font-size:11px;color:#555;background:#fff;font-family:monospace;}
 @media(max-width:600px){.toolbar{gap:5px;}.period-label{min-width:100px;font-size:11px;}.icon-btn,.nav-btn{padding:4px 7px;font-size:11px;}.stats-bar{gap:6px;}.stat-card{min-width:100px;}}
-@media print{.toolbar,.sync-bar,.filter-bar,.settings-panel,.legend,.btn-c,.btn-s,.btn-d,.icon-btn,.nav-btn,.del-prop,.owner-btn{display:none!important;}.app{padding:0;}.grid-wrap{box-shadow:none;}}
+
+/* ── OPTIMISATIONS MOBILE UNIQUEMENT ─────────────────────────────────────── */
+@media(max-width:768px){
+
+  /* Toolbar : garder seulement l'essentiel visible */
+  .toolbar{flex-wrap:wrap;gap:4px;padding:6px 8px;}
+  .icon-btn.edit-only:not(#addBookBtn):not(#addCleanBtn){display:none!important;}
+  #moreMenuBtn{display:inline-flex!important;}
+  #moreMenu{display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e0e0e0;border-radius:16px 16px 0 0;padding:12px;z-index:1000;box-shadow:0 -4px 20px rgba(0,0,0,.15);flex-direction:column;gap:8px;}
+  #moreMenu.open{display:flex!important;}
+  #moreMenu button{width:100%;padding:12px;font-size:14px;border-radius:10px;border:1px solid #e0e0e0;background:#fafafa;cursor:pointer;text-align:left;}
+  #moreMenuOverlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:999;}
+  #moreMenuOverlay.open{display:block;}
+
+  /* Colonne biens compacte */
+  td.prop-td{width:90px!important;min-width:80px!important;max-width:90px!important;padding:0 3px 0 4px!important;font-size:9px!important;}
+  th.prop-th{width:90px!important;min-width:80px!important;}
+  .pname{max-width:55px!important;font-size:9px!important;}
+  .mgmt-badge,.type-badge{display:none!important;}
+  .prop-rate{display:none!important;}
+  .del-prop{display:none!important;}
+
+  /* Cellules plus hautes pour faciliter le toucher */
+  td{height:52px!important;}
+  .seg{top:4px!important;bottom:4px!important;}
+
+  /* Texte plus lisible sur les barres */
+  .seg-inner{font-size:11px!important;}
+  .night-badge{font-size:9px!important;}
+
+  /* Filtres en accordéon */
+  .filter-bar{flex-wrap:wrap;gap:4px;}
+  #filterToggleBtn{display:inline-flex!important;width:100%;justify-content:space-between;align-items:center;padding:6px 10px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:8px;font-size:12px;cursor:pointer;margin-bottom:2px;}
+  .filter-collapsible{display:none;flex-wrap:wrap;gap:4px;width:100%;}
+  .filter-collapsible.open{display:flex!important;}
+  .filter-select,.filter-bar input[type=text]{font-size:12px!important;min-width:0!important;flex:1;}
+
+  /* Stats bar plus compacte */
+  .stat-card{min-width:80px!important;padding:6px 8px!important;}
+  .stat-val{font-size:16px!important;}
+  .stat-label{font-size:9px!important;}
+
+  /* Modales plein écran sur mobile */
+  .modal{width:100%!important;max-width:100%!important;max-height:90vh!important;margin:0!important;border-radius:16px 16px 0 0!important;position:fixed!important;bottom:0!important;left:0!important;right:0!important;}
+  .modal-overlay{align-items:flex-end!important;}
+}
+/* Filtres toujours visibles sur desktop */
+@media(min-width:769px){
+  .filter-collapsible{display:flex!important;flex-wrap:wrap;gap:4px;align-items:center;}
+  #filterToggleBtn{display:none!important;}
+  #moreMenuBtn{display:none!important;}
+}.toolbar,.sync-bar,.filter-bar,.settings-panel,.legend,.btn-c,.btn-s,.btn-d,.icon-btn,.nav-btn,.del-prop,.owner-btn{display:none!important;}.app{padding:0;}.grid-wrap{box-shadow:none;}}
 </style>
 </head>
 <body>
@@ -144,6 +195,23 @@ td.day-cell:hover{filter:brightness(.94);}
   <button class="icon-btn" id="settingsBtn">⚙ Apparence</button>
   <button class="icon-btn edit-only" id="shareBtn">🔗 Partager</button>
   <button class="icon-btn" id="exportBtn">📄 PDF</button>
+  <!-- Bouton "..." mobile uniquement -->
+  <button id="moreMenuBtn" style="display:none;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:8px;padding:4px 10px;font-size:16px;cursor:pointer;">•••</button>
+</div>
+
+<!-- Menu "..." mobile -->
+<div id="moreMenuOverlay"></div>
+<div id="moreMenu">
+  <div style="font-size:11px;color:#aaa;text-align:center;margin-bottom:4px">Plus d'options</div>
+  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open');document.getElementById('addPropBtn').click()">+ Ajouter un bien</button>
+  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open');document.getElementById('reorderBtn').click()">↕ Ordre des biens</button>
+  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open');document.getElementById('availBtn').click()">🔍 Disponibilités</button>
+  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open');document.getElementById('ownersListBtn').click()">👥 Propriétaires</button>
+  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open');document.getElementById('revenueBtn').click()">💰 Revenus</button>
+  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open');document.getElementById('settingsBtn').click()">⚙ Apparence</button>
+  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open');document.getElementById('shareBtn').click()">🔗 Partager</button>
+  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open');document.getElementById('exportBtn').click()">📄 PDF</button>
+  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open')" style="color:#888;margin-top:4px">Fermer</button>
 </div>
 <div class="settings-panel" id="settingsPanel">
   <div class="settings-section">
@@ -194,6 +262,9 @@ td.day-cell:hover{filter:brightness(.94);}
   </div>
 </div>
 <div class="filter-bar">
+  <!-- Bouton accordéon filtres (mobile uniquement) -->
+  <button id="filterToggleBtn" style="display:none">🔽 Filtres <span id="filterActiveCount"></span></button>
+  <div class="filter-collapsible" id="filterCollapsible">
   <label>Filtrer :</label>
   <select class="filter-select" id="filterType"><option value="">Tous types</option><option value="appartement">Appartements</option><option value="mobilhome">Mobil-homes</option><option value="maison">Maisons</option><option value="studio">Studios</option><option value="autre">Autre</option></select>
   <div style="position:relative;display:inline-block">
@@ -208,6 +279,7 @@ td.day-cell:hover{filter:brightness(.94);}
     <input type="text" id="searchClient" placeholder="👤 Nom du locataire..." style="padding:5px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px;min-width:180px;background:#fafafa;color:#1a1a1a;font-family:inherit;" autocomplete="off">
     <div id="searchClientDropdown" style="display:none;position:absolute;top:100%;left:0;min-width:260px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:100;max-height:220px;overflow-y:auto;margin-top:2px;"></div>
   </div>
+  </div><!-- fin filter-collapsible -->
 </div>
 <div class="stats-bar" id="statsBar"></div>
 <div id="todayBanner" style="display:none;background:linear-gradient(135deg,#e8f5e9,#e3f2fd);border:1px solid #c8e6c9;border-radius:10px;padding:10px 16px;margin-bottom:.75rem;gap:16px;flex-wrap:wrap;align-items:center;font-size:13px;font-weight:500;"></div>
@@ -1697,6 +1769,31 @@ document.getElementById('serviceSaveBtn').addEventListener('click',()=>{
 });
 
 document.getElementById('exportBtn').addEventListener('click',()=>window.print());
+
+// ─── MOBILE : menu ••• et filtres accordéon ──────────────────────────────────
+document.getElementById('moreMenuBtn').addEventListener('click',()=>{
+  document.getElementById('moreMenu').classList.toggle('open');
+  document.getElementById('moreMenuOverlay').classList.toggle('open');
+});
+document.getElementById('moreMenuOverlay').addEventListener('click',()=>{
+  document.getElementById('moreMenu').classList.remove('open');
+  document.getElementById('moreMenuOverlay').classList.remove('open');
+});
+
+const filterToggleBtn=document.getElementById('filterToggleBtn');
+const filterCollapsible=document.getElementById('filterCollapsible');
+if(filterToggleBtn){
+  filterToggleBtn.addEventListener('click',()=>{
+    filterCollapsible.classList.toggle('open');
+    filterToggleBtn.innerHTML=filterCollapsible.classList.contains('open')?'🔼 Filtres':'🔽 Filtres';
+  });
+  // Sur mobile, les filtres sont fermés par défaut
+  if(window.innerWidth<=768){
+    filterCollapsible.classList.remove('open');
+  } else {
+    filterCollapsible.classList.add('open');
+  }
+}
 
 // ─── DISPONIBILITÉS ──────────────────────────────────────────────────────────
 document.getElementById('availBtn').addEventListener('click',()=>{
