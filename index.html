@@ -137,7 +137,6 @@ td.day-cell:hover{filter:brightness(.94);}
 }
 
   #filterToggleBtn{display:none!important;}
-  #moreMenuBtn{display:none!important;}
 }.toolbar,.sync-bar,.filter-bar,.settings-panel,.legend,.btn-c,.btn-s,.btn-d,.icon-btn,.nav-btn,.del-prop,.owner-btn{display:none!important;}.app{padding:0;}.grid-wrap{box-shadow:none;}}
 </style>
 </head>
@@ -173,16 +172,6 @@ td.day-cell:hover{filter:brightness(.94);}
   <button class="icon-btn" id="exportBtn">📄 PDF</button>
 </div>
 
-  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open');document.getElementById('addPropBtn').click()">+ Ajouter un bien</button>
-  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open');document.getElementById('reorderBtn').click()">↕ Ordre des biens</button>
-  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open');document.getElementById('availBtn').click()">🔍 Disponibilités</button>
-  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open');document.getElementById('ownersListBtn').click()">👥 Propriétaires</button>
-  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open');document.getElementById('revenueBtn').click()">💰 Revenus</button>
-  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open');document.getElementById('settingsBtn').click()">⚙ Apparence</button>
-  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open');document.getElementById('shareBtn').click()">🔗 Partager</button>
-  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open');document.getElementById('exportBtn').click()">📄 PDF</button>
-  <button onclick="document.getElementById('moreMenu').classList.remove('open');document.getElementById('moreMenuOverlay').classList.remove('open')" style="color:#888;margin-top:4px">Fermer</button>
-</div>
 <div class="settings-panel" id="settingsPanel">
   <div class="settings-section">
     <div class="settings-section-title">Thèmes</div>
@@ -260,7 +249,6 @@ td.day-cell:hover{filter:brightness(.94);}
   <div class="legend-item" style="margin-left:auto;font-size:10px;color:#aaa">▶ arrivée &nbsp; ◀ départ</div>
 </div>
 <div class="grid-wrap"><table id="mainTable"></table></div>
-</div>
 <div class="toast" id="toast"></div>
 
 <!-- BOOKING MODAL -->
