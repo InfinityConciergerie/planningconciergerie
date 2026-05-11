@@ -114,6 +114,10 @@ td.day-cell:hover{filter:brightness(.94);}
 
 /* ── MOBILE UNIQUEMENT (≤768px) ──────────────────────────────────────────── */
 @media(max-width:768px){
+  /* Toolbar : cacher les boutons secondaires */
+  #addPropBtn,#reorderBtn,#availBtn,#ownersListBtn,#revenueBtn,#settingsBtn,#shareBtn,#exportBtn{display:none!important;}
+  #mobileMenuBtn{display:inline-flex!important;}
+
   /* Colonne biens compacte */
   td.prop-td{width:90px!important;min-width:80px!important;max-width:90px!important;padding:0 3px 0 4px!important;font-size:9px!important;}
   th.prop-th{width:90px!important;min-width:80px!important;}
@@ -134,10 +138,22 @@ td.day-cell:hover{filter:brightness(.94);}
   .stat-card{min-width:70px!important;padding:6px 8px!important;}
   .stat-val{font-size:16px!important;}
   .stat-label{font-size:8px!important;}
+
+  /* Filtres accordéon */
+  .filter-bar{flex-wrap:wrap;}
+  #filterToggleBtn{display:flex!important;width:100%;justify-content:space-between;padding:7px 12px;background:#f5f5f5;border:1px solid #e0e0e0;border-radius:8px;font-size:12px;cursor:pointer;margin-bottom:2px;}
+  .filter-inner{display:none;flex-wrap:wrap;gap:4px;width:100%;}
+  .filter-inner.open{display:flex!important;}
 }
 
+/* Desktop : tout toujours visible */
+@media(min-width:769px){
+  #mobileMenuBtn{display:none!important;}
   #filterToggleBtn{display:none!important;}
-}.toolbar,.sync-bar,.filter-bar,.settings-panel,.legend,.btn-c,.btn-s,.btn-d,.icon-btn,.nav-btn,.del-prop,.owner-btn{display:none!important;}.app{padding:0;}.grid-wrap{box-shadow:none;}}
+  .filter-inner{display:flex!important;flex-wrap:wrap;gap:4px;align-items:center;}
+}
+
+@media print{.toolbar,.sync-bar,.filter-bar,.settings-panel,.legend,.btn-c,.btn-s,.btn-d,.icon-btn,.nav-btn,.del-prop,.owner-btn{display:none!important;}.app{padding:0;}.grid-wrap{box-shadow:none;}}
 </style>
 </head>
 <body>
@@ -170,6 +186,24 @@ td.day-cell:hover{filter:brightness(.94);}
   <button class="icon-btn" id="settingsBtn">⚙ Apparence</button>
   <button class="icon-btn edit-only" id="shareBtn">🔗 Partager</button>
   <button class="icon-btn" id="exportBtn">📄 PDF</button>
+  <button id="mobileMenuBtn" style="display:none;background:#1a73e8;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;">☰ Menu</button>
+</div>
+
+<!-- Menu mobile (drawer depuis le bas) -->
+<div id="mobileOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:998;" onclick="closeMobileMenu()"></div>
+<div id="mobileDrawer" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-radius:16px 16px 0 0;padding:16px;z-index:999;box-shadow:0 -4px 20px rgba(0,0,0,.15);">
+  <div style="text-align:center;margin-bottom:12px;font-weight:600;color:#555;font-size:13px">Plus d'options</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <button onclick="closeMobileMenu();document.getElementById('addPropBtn').click()" style="padding:12px;border:1px solid #e0e0e0;border-radius:10px;background:#fafafa;font-size:13px;cursor:pointer">+ Bien</button>
+    <button onclick="closeMobileMenu();document.getElementById('reorderBtn').click()" style="padding:12px;border:1px solid #e0e0e0;border-radius:10px;background:#fafafa;font-size:13px;cursor:pointer">↕ Ordre</button>
+    <button onclick="closeMobileMenu();document.getElementById('availBtn').click()" style="padding:12px;border:1px solid #e0e0e0;border-radius:10px;background:#fafafa;font-size:13px;cursor:pointer">🔍 Dispo</button>
+    <button onclick="closeMobileMenu();document.getElementById('ownersListBtn').click()" style="padding:12px;border:1px solid #e0e0e0;border-radius:10px;background:#fafafa;font-size:13px;cursor:pointer">👥 Proprio</button>
+    <button onclick="closeMobileMenu();document.getElementById('revenueBtn').click()" style="padding:12px;border:1px solid #e0e0e0;border-radius:10px;background:#fafafa;font-size:13px;cursor:pointer">💰 Revenus</button>
+    <button onclick="closeMobileMenu();document.getElementById('settingsBtn').click()" style="padding:12px;border:1px solid #e0e0e0;border-radius:10px;background:#fafafa;font-size:13px;cursor:pointer">⚙ Apparence</button>
+    <button onclick="closeMobileMenu();document.getElementById('shareBtn').click()" style="padding:12px;border:1px solid #e0e0e0;border-radius:10px;background:#fafafa;font-size:13px;cursor:pointer">🔗 Partager</button>
+    <button onclick="closeMobileMenu();document.getElementById('exportBtn').click()" style="padding:12px;border:1px solid #e0e0e0;border-radius:10px;background:#fafafa;font-size:13px;cursor:pointer">📄 PDF</button>
+  </div>
+  <button onclick="closeMobileMenu()" style="width:100%;margin-top:10px;padding:12px;border:none;border-radius:10px;background:#f5f5f5;font-size:13px;color:#888;cursor:pointer">Fermer</button>
 </div>
 
 <div class="settings-panel" id="settingsPanel">
@@ -221,6 +255,8 @@ td.day-cell:hover{filter:brightness(.94);}
   </div>
 </div>
 <div class="filter-bar">
+  <button id="filterToggleBtn" style="display:none">🔽 Filtres</button>
+  <div class="filter-inner open" id="filterInner">
   <label>Filtrer :</label>
   <select class="filter-select" id="filterType"><option value="">Tous types</option><option value="appartement">Appartements</option><option value="mobilhome">Mobil-homes</option><option value="maison">Maisons</option><option value="studio">Studios</option><option value="autre">Autre</option></select>
   <div style="position:relative;display:inline-block">
@@ -234,6 +270,7 @@ td.day-cell:hover{filter:brightness(.94);}
   <div style="position:relative;display:inline-block">
     <input type="text" id="searchClient" placeholder="👤 Nom du locataire..." style="padding:5px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:12px;min-width:180px;background:#fafafa;color:#1a1a1a;font-family:inherit;" autocomplete="off">
     <div id="searchClientDropdown" style="display:none;position:absolute;top:100%;left:0;min-width:260px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:100;max-height:220px;overflow-y:auto;margin-top:2px;"></div>
+  </div>
   </div>
 </div>
 <div class="stats-bar" id="statsBar"></div>
@@ -322,6 +359,17 @@ td.day-cell:hover{filter:brightness(.94);}
       </select>
     </div>
     <div class="fg"><label>Capacité 👥 (nombre de personnes)</label><input type="number" id="fPropCapacity" placeholder="ex: 4" min="1" max="20"/></div>
+    <div class="fg" id="fPropPlatformBox" style="display:none">
+      <label>Plateformes de diffusion</label>
+      <div style="display:flex;gap:16px;margin-top:6px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="fPropAirbnb"> <span style="background:#FF5A5F;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">Airbnb</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="fPropBooking"> <span style="background:#003580;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">Booking</span>
+        </label>
+      </div>
+    </div>
     <div class="mactions">
       <button class="btn-d" id="pDelBtn" style="display:none">Supprimer le bien</button>
       <button class="btn-c" id="pCancelBtn">Annuler</button>
@@ -587,7 +635,7 @@ let colors={confirmed:'#1a73e8',option:'#f59e0b',blocked:'#9ca3af'};
 let mgmtColors={totale:'#e8f5e9',partielle:'#fff8e1',aucune:'#fce8e8',none:'#f5f5f5'};
 let cleanColors={interieur:'#f59e0b',exterieur:'#3b82f6',done:'#22c55e'};
 let platColors={Airbnb:'#FF5A5F',Booking:'#003580',Direct:'#22c55e',Autre:'#888888'};
-let properties=[],bookings=[],owners={},propRates={},propTariffs={},propMgmt={},propType={},propCapacity={},checklists={},cleaningTasks=[],services=[];
+let properties=[],bookings=[],owners={},propRates={},propTariffs={},propMgmt={},propType={},propCapacity={},propPlatforms={},checklists={},cleaningTasks=[],services=[];
 let nextServiceId=1;
 let currentUser=localStorage.getItem('infinity_user')||null;
 
@@ -687,6 +735,7 @@ function initFirebase(url){
         if(data.propMinStayUnitArr&&properties){const propMinStayUnit={};properties.forEach((p,i)=>{if(data.propMinStayUnitArr[i])propMinStayUnit[p]=data.propMinStayUnitArr[i];});}
         if(data.propTariffsArr&&properties){propTariffs={};properties.forEach((p,i)=>{if(data.propTariffsArr[i])propTariffs[p]=data.propTariffsArr[i];});}
         if(data.propCapacityArr&&properties){propCapacity={};properties.forEach((p,i)=>{if(data.propCapacityArr[i])propCapacity[p]=data.propCapacityArr[i];});}
+        if(data.propPlatformsArr&&properties){propPlatforms={};properties.forEach((p,i)=>{if(data.propPlatformsArr[i])propPlatforms[p]=data.propPlatformsArr[i];});}
         const s=data.settings||{};
         if(s.themeId) activeTheme=THEMES.find(t=>t.id===s.themeId)||THEMES[0];
         if(s.colors) colors=s.colors;
@@ -716,11 +765,7 @@ function pushData(){
   const propTypeArr=properties.map(p=>propType[p]||'');
   const propMgmtArr=properties.map(p=>propMgmt[p]||'');
   const propCapacityArr=properties.map(p=>propCapacity[p]||0);
-  const propRatesArr=properties.map(p=>propRates[p]||0);
-  const propTariffsArr=properties.map(p=>{
-    const t=propTariffs[p]||[];
-    return t.map(({from,to,rate,unit,minStay,minUnit})=>({from,to,rate,unit,minStay:minStay||'',minUnit:minUnit||'nuits'}));
-  });
+  const propPlatformsArr=properties.map(p=>propPlatforms[p]||null);
   const ownersArr=properties.map(p=>{
     const o=owners[p];
     if(!o)return null;
@@ -729,7 +774,7 @@ function pushData(){
     if(o.phone)clean.phone=o.phone;
     if(o.email)clean.email=o.email;
     if(o.note)clean.note=o.note;
-    if(o.giftBox)clean.giftBox=o.giftBox;
+    if(o.giftBox!==undefined&&o.giftBox!==null)clean.giftBox=o.giftBox;
     if(o.cleanRate)clean.cleanRate=o.cleanRate;
     if(o.mgmtPct)clean.mgmtPct=o.mgmtPct;
     return Object.keys(clean).length>0?clean:null;
@@ -749,7 +794,7 @@ function pushData(){
     notes:b.notes||'',rate:b.rate||0,
     ...(b.modifiedBy?{modifiedBy:b.modifiedBy,modifiedAt:b.modifiedAt||''}:{})
   }));
-  db.ref('planning').set({properties,bookings:cleanBookings,nextId,ownersArr,propRatesArr,propMgmtArr,propTypeArr,propTariffsArr,propCapacityArr,checklists,cleaningTasks,nextCleanId,services:cleanServices,nextServiceId,settings:{themeId:activeTheme.id,colors,mgmtColors,cleanColors,platColors,bgOpacity},updatedAt:Date.now()})
+  db.ref('planning').set({properties,bookings:cleanBookings,nextId,ownersArr,propRatesArr,propMgmtArr,propTypeArr,propTariffsArr,propCapacityArr,propPlatformsArr,checklists,cleaningTasks,nextCleanId,services:cleanServices,nextServiceId,settings:{themeId:activeTheme.id,colors,mgmtColors,cleanColors,platColors,bgOpacity},updatedAt:Date.now()})
     .then(()=>setSyncStatus('online','Synchronisé')).catch(e=>setSyncStatus('error',e.message));
 }
 
@@ -960,6 +1005,11 @@ function render(){
     const typ=propType[prop]||'';
     const typBadge=typ?`<span class="type-badge">${TYPE_LABELS[typ]||typ}</span>`:'';
     const capBadge=propCapacity[prop]?`<span style="font-size:9px;color:#888;margin-left:3px">👥${propCapacity[prop]}</span>`:'';
+    const plats=propPlatforms[prop]||{};
+    const platBadges=typ==='appartement'?[
+      plats.airbnb?'<span style="font-size:9px;background:#FF5A5F;color:#fff;border-radius:3px;padding:1px 4px;margin-left:2px">A</span>':'',
+      plats.booking?'<span style="font-size:9px;background:#003580;color:#fff;border-radius:3px;padding:1px 4px;margin-left:2px">B</span>':''
+    ].join(''):'';
     // Trouver prochain séjour pour check-list
     const today=ds(new Date());
     const nextBk=bookings.filter(b=>b&&b.property===prop&&b.status!=='blocked'&&b.end>today).sort((a,b)=>a.start.localeCompare(b.start))[0];
@@ -975,7 +1025,7 @@ function render(){
       else if(daysUntil>0)nextArrivalBadge=`<span style="font-size:9px;background:#e8f0fe;color:#1a73e8;border-radius:4px;padding:1px 4px;margin-left:2px">J-${daysUntil}</span>`;
     }
     html+=`<tr><td class="prop-td" data-mgmt="${propMgmt[prop]||'none'}">
-      <span class="pname" title="${prop}">${prop}</span>${mgmtBadge}${typBadge}${capBadge}${nextArrivalBadge}
+      <span class="pname" title="${prop}">${prop}</span>${mgmtBadge}${typBadge}${platBadges}${capBadge}${nextArrivalBadge}
       <span class="prop-rate">${occPct}% ce mois</span>
       ${!isReadOnly?`<button class="owner-btn" data-prop="${prop}" title="Fiche propriétaire">${hasOwner?'👤':'👤+'}</button>`:''}
       ${!isReadOnly?`<button class="owner-btn clean-btn" data-prop="${prop}" data-bkid="${nextBk?nextBk.id:''}" title="Check-list ménage prochain séjour">🧹${ckLabel}</button>`:''}
@@ -1295,6 +1345,14 @@ function openPropModal(prop=null){
   document.getElementById('fPropType').value=prop&&propType[prop]?propType[prop]:'';
   document.getElementById('fPropMgmt').value=prop&&propMgmt[prop]?propMgmt[prop]:'';
   document.getElementById('fPropCapacity').value=prop&&propCapacity[prop]?propCapacity[prop]:'';
+  const plats=prop&&propPlatforms[prop]?propPlatforms[prop]:{};
+  document.getElementById('fPropAirbnb').checked=plats.airbnb||false;
+  document.getElementById('fPropBooking').checked=plats.booking||false;
+  const isAP=prop?propType[prop]==='appartement':false;
+  document.getElementById('fPropPlatformBox').style.display=isAP?'block':'none';
+  document.getElementById('fPropType').onchange=function(){
+    document.getElementById('fPropPlatformBox').style.display=this.value==='appartement'?'block':'none';
+  };
   document.getElementById('pDelBtn').style.display=prop?'block':'none';
   renderTariffGrid();
   document.getElementById('propModal').style.display='flex';
@@ -1324,6 +1382,7 @@ document.getElementById('pSaveBtn').addEventListener('click',()=>{
   const mgmt=document.getElementById('fPropMgmt').value;
   const typ=document.getElementById('fPropType').value;
   const cap=parseInt(document.getElementById('fPropCapacity').value)||0;
+  const plat=typ==='appartement'?{airbnb:document.getElementById('fPropAirbnb').checked,booking:document.getElementById('fPropBooking').checked}:null;
   if(!newName)return;
   // Lire les valeurs finales de la grille
   document.getElementById('tariffGrid').querySelectorAll('input,select').forEach(el=>{
@@ -1341,17 +1400,20 @@ document.getElementById('pSaveBtn').addEventListener('click',()=>{
       if(propMgmt[editingProp]){propMgmt[newName]=propMgmt[editingProp];delete propMgmt[editingProp];}
       if(propType[editingProp]){propType[newName]=propType[editingProp];delete propType[editingProp];}
       if(propTariffs[editingProp]){propTariffs[newName]=propTariffs[editingProp];delete propTariffs[editingProp];}
+      if(propPlatforms[editingProp]){propPlatforms[newName]=propPlatforms[editingProp];delete propPlatforms[editingProp];}
     }
     propTariffs[newName]=validTariffs;
     if(mgmt)propMgmt[newName]=mgmt; else delete propMgmt[newName];
     if(typ)propType[newName]=typ; else delete propType[newName];
     if(cap)propCapacity[newName]=cap; else delete propCapacity[newName];
+    if(plat)propPlatforms[newName]=plat; else delete propPlatforms[newName];
   } else {
     if(!properties.includes(newName))properties.push(newName);
     propTariffs[newName]=validTariffs;
     if(mgmt)propMgmt[newName]=mgmt; else delete propMgmt[newName];
     if(typ)propType[newName]=typ; else delete propType[newName];
     if(cap)propCapacity[newName]=cap; else delete propCapacity[newName];
+    if(plat)propPlatforms[newName]=plat; else delete propPlatforms[newName];
   }
   properties.sort((a,b)=>{
     const prefA=a.match(/^[A-Z]+/i)?a.match(/^[A-Z]+/i)[0].toUpperCase():'';
@@ -1550,10 +1612,9 @@ function getAutoRevenues(month){
     // % gestion selon plateforme et type de gestion
     const o=owners[b.property]||{};
     const pct=o.mgmtPct||0;
+    // % uniquement sur les locations en direct (Airbnb et Booking = tout pour le propriétaire)
     const isDirect=b.platform==='Direct'||!b.platform;
-    const isAirbnbBooking=b.platform==='Airbnb'||b.platform==='Booking';
-    const isGestionTotale=propMgmt[b.property]==='totale';
-    const applyPct=pct>0&&b.rate&&(isDirect||(isAirbnbBooking&&isGestionTotale));
+    const applyPct=pct>0&&b.rate&&isDirect;
     if(applyPct){
       const nights=nightsBetween(b.start,b.end);
       const total=b.rate*nights;
@@ -1723,6 +1784,23 @@ document.getElementById('serviceSaveBtn').addEventListener('click',()=>{
 });
 
 document.getElementById('exportBtn').addEventListener('click',()=>window.print());
+
+// ─── MENU MOBILE ─────────────────────────────────────────────────────────────
+function closeMobileMenu(){
+  document.getElementById('mobileDrawer').style.display='none';
+  document.getElementById('mobileOverlay').style.display='none';
+}
+document.getElementById('mobileMenuBtn').addEventListener('click',()=>{
+  document.getElementById('mobileDrawer').style.display='block';
+  document.getElementById('mobileOverlay').style.display='block';
+});
+
+// ─── FILTRES ACCORDÉON (mobile) ───────────────────────────────────────────────
+document.getElementById('filterToggleBtn').addEventListener('click',()=>{
+  const inner=document.getElementById('filterInner');
+  inner.classList.toggle('open');
+  document.getElementById('filterToggleBtn').textContent=inner.classList.contains('open')?'🔼 Filtres':'🔽 Filtres';
+});
 
 
 
