@@ -766,6 +766,11 @@ function pushData(){
   const propMgmtArr=properties.map(p=>propMgmt[p]||'');
   const propCapacityArr=properties.map(p=>propCapacity[p]||0);
   const propPlatformsArr=properties.map(p=>propPlatforms[p]||null);
+  const propRatesArr=properties.map(p=>propRates[p]||0);
+  const propTariffsArr=properties.map(p=>{
+    const t=propTariffs[p]||[];
+    return t.map(({from,to,rate,unit,minStay,minUnit})=>({from,to,rate,unit,minStay:minStay||'',minUnit:minUnit||'nuits'}));
+  });
   const ownersArr=properties.map(p=>{
     const o=owners[p];
     if(!o)return null;
