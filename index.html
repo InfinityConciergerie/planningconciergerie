@@ -779,7 +779,7 @@ function pushData(){
     if(o.phone)clean.phone=o.phone;
     if(o.email)clean.email=o.email;
     if(o.note)clean.note=o.note;
-    if(o.giftBox!==undefined&&o.giftBox!==null)clean.giftBox=o.giftBox;
+    clean.giftBox=o.giftBox||''; // Toujours inclure giftBox
     if(o.cleanRate)clean.cleanRate=o.cleanRate;
     if(o.mgmtPct)clean.mgmtPct=o.mgmtPct;
     return Object.keys(clean).length>0?clean:null;
@@ -1100,7 +1100,11 @@ function render(){
   table.querySelectorAll('.clean-btn').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();openChecklistFromProp(el.dataset.prop,el.dataset.bkid);}));
   table.querySelectorAll('.del-prop').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();delProp(el.dataset.prop);}));
   table.querySelectorAll('.pname').forEach(el=>el.addEventListener('click',e=>{if(isReadOnly)return;e.stopPropagation();openPropModal(el.title);}));
-  table.querySelectorAll('.day-cell').forEach(el=>el.addEventListener('click',()=>{if(isReadOnly)return;openNew(el.dataset.prop,el.dataset.date);}));
+  table.querySelectorAll('.day-cell').forEach(el=>el.addEventListener('click',(e)=>{
+    if(isReadOnly)return;
+    if(e.target.closest('.seg')||e.target.closest('.seg-cont')||e.target.closest('.clean-seg'))return;
+    openNew(el.dataset.prop,el.dataset.date);
+  }));
   table.querySelectorAll('.prop-td').forEach(el=>{const name=el.querySelector('.pname');if(name)addLongPress(el,name.title);});
   const gridWrap=document.querySelector('.grid-wrap');
   if(gridWrap)gridWrap.style.display='';
@@ -1478,7 +1482,9 @@ document.getElementById('ownerSaveBtn').addEventListener('click',()=>{
   const email=document.getElementById('fOwnerEmail').value.trim();
   const note=document.getElementById('fOwnerNote').value.trim();
   if(name)clean.name=name;if(phone)clean.phone=phone;if(email)clean.email=email;
-  if(note)clean.note=note;if(giftBox)clean.giftBox=giftBox;
+  if(note)clean.note=note;
+  clean.giftBox=giftBox; // Toujours enregistrer, même si vide ou "non"
+  if(cleanRate)clean.cleanRate=cleanRate;if(mgmtPct)clean.mgmtPct=mgmtPct;
   if(cleanRate)clean.cleanRate=cleanRate;if(mgmtPct)clean.mgmtPct=mgmtPct;
   owners[currentOwnerProp]=clean;
   document.getElementById('ownerModal').style.display='none';render();pushData();saveLocalData();
