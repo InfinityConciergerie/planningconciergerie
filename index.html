@@ -1057,8 +1057,8 @@ function render(){
       let inner='';
       here.forEach(({b,left,right})=>{
         if(i!==left){
-          // Cellule de continuation — ajouter un lien cliquable invisible
-          inner+=`<div class="seg-cont" data-id="${b.id}" style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;cursor:pointer;"></div>`;
+          // Cellule de continuation — on marque la cellule avec l'id de la résa
+          if(!inner)inner=`<div class="seg-cont" data-id="${b.id}" style="position:absolute;top:3px;left:0;right:0;bottom:3px;z-index:2;cursor:pointer;border-radius:2px;background:inherit;opacity:0"></div>`;
           return;
         }
         const span=right-left+1;
@@ -1467,13 +1467,15 @@ document.getElementById('ownerViewEditBtn').addEventListener('click',()=>{
   document.getElementById('fOwnerCleanRate').value=o.cleanRate||'';
   document.getElementById('fOwnerMgmtPct').value=o.mgmtPct||'';
   const giftVal=o.giftBox||'';
-  document.querySelectorAll('input[name="fGiftBox"]').forEach(r=>r.checked=(r.value===giftVal));
+  document.getElementById('ownerModal').querySelectorAll('input[name="fGiftBox"]').forEach(r=>r.checked=(r.value===giftVal));
   document.getElementById('ownerViewModal').style.display='none';document.getElementById('ownerModal').style.display='flex';
 });
 document.getElementById('ownerViewCloseBtn').addEventListener('click',()=>document.getElementById('ownerViewModal').style.display='none');
 document.getElementById('ownerCancelBtn').addEventListener('click',()=>document.getElementById('ownerModal').style.display='none');
 document.getElementById('ownerSaveBtn').addEventListener('click',()=>{
-  const giftBox=document.querySelector('input[name="fGiftBox"]:checked')?.value||'';
+  const modal=document.getElementById('ownerModal');
+  const checkedRadio=modal.querySelector('input[name="fGiftBox"]:checked');
+  const giftBox=checkedRadio?checkedRadio.value:'';
   const cleanRate=parseFloat(document.getElementById('fOwnerCleanRate').value)||0;
   const mgmtPct=parseFloat(document.getElementById('fOwnerMgmtPct').value)||0;
   const clean={};
