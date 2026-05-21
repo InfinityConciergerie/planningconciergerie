@@ -435,7 +435,7 @@ td.day-cell:hover{filter:brightness(.94);}
           <input type="radio" name="fGiftBox" id="fGiftBoxNo" value="non"> 🚫 Non
         </label>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
-          <input type="radio" name="fGiftBox" id="fGiftBoxNone" value="" checked> — Non renseigné
+          <input type="radio" name="fGiftBox" id="fGiftBoxNone" value=""> — Non renseigné
         </label>
       </div>
     </div>
@@ -1467,13 +1467,20 @@ document.getElementById('ownerViewEditBtn').addEventListener('click',()=>{
   document.getElementById('fOwnerCleanRate').value=o.cleanRate||'';
   document.getElementById('fOwnerMgmtPct').value=o.mgmtPct||'';
   const giftVal=o.giftBox||'';
-  document.getElementById('ownerModal').querySelectorAll('input[name="fGiftBox"]').forEach(r=>r.checked=(r.value===giftVal));
+  const ownerModal=document.getElementById('ownerModal');
+  ownerModal.dataset.prop=currentOwnerProp;
+  ownerModal.querySelectorAll('input[name="fGiftBox"]').forEach(r=>{r.checked=(r.value===giftVal);});
+  // Si aucun n'est coché (nouveau proprio), cocher "Non renseigné"
+  const anyChecked=document.getElementById('ownerModal').querySelector('input[name="fGiftBox"]:checked');
+  if(!anyChecked)document.getElementById('fGiftBoxNone').checked=true;
   document.getElementById('ownerViewModal').style.display='none';document.getElementById('ownerModal').style.display='flex';
 });
 document.getElementById('ownerViewCloseBtn').addEventListener('click',()=>document.getElementById('ownerViewModal').style.display='none');
 document.getElementById('ownerCancelBtn').addEventListener('click',()=>document.getElementById('ownerModal').style.display='none');
 document.getElementById('ownerSaveBtn').addEventListener('click',()=>{
   const modal=document.getElementById('ownerModal');
+  const prop=modal.dataset.prop||currentOwnerProp;
+  if(!prop)return;
   const checkedRadio=modal.querySelector('input[name="fGiftBox"]:checked');
   const giftBox=checkedRadio?checkedRadio.value:'';
   const cleanRate=parseFloat(document.getElementById('fOwnerCleanRate').value)||0;
@@ -1488,7 +1495,7 @@ document.getElementById('ownerSaveBtn').addEventListener('click',()=>{
   clean.giftBox=giftBox; // Toujours enregistrer, même si vide ou "non"
   if(cleanRate)clean.cleanRate=cleanRate;if(mgmtPct)clean.mgmtPct=mgmtPct;
   if(cleanRate)clean.cleanRate=cleanRate;if(mgmtPct)clean.mgmtPct=mgmtPct;
-  owners[currentOwnerProp]=clean;
+  owners[prop]=clean;
   document.getElementById('ownerModal').style.display='none';render();pushData();saveLocalData();
 });
 
